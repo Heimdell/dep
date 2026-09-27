@@ -26,6 +26,8 @@ data Value Γ where
   %Stuck : Stuck Γ → Value Γ
   %Ctor  : String → List (Value Γ) → Value Γ
   %Lam   : List (Match Γ) → Value Γ
+  %U     : Value Γ
+  %Pi    : (n : Name) → Value Γ → Value (n ∷ Γ) → Value Γ
   %Recur :
     (n      : Maybe Name)
     (body   : Case Value Δ Γ)
@@ -74,11 +76,13 @@ value-vec→string [] [] = 𝟘
 value-vec→string  (n ∷ Δ) (expr ∷ decls) = n + ": " + show expr + "; " + value-vec→string Δ decls
 
 show-value .show = λ where
-  (%Stuck stuck) → show stuck + "ₛ"
-  (%Ctor ctor exprs) → "(" + fold-l _◈_ ctor (show <$> exprs) + ")"
-  (%Lam alts)    → "{" + intercalate " | " (show <$> alts) + "}"
-  (%Recur (just n) _ _) → "⋯" + n
+  (%Stuck stuck)          → show stuck + "ₛ"
+  (%Ctor  ctor exprs)     → "(" + fold-l _◈_ ctor (show <$> exprs) + ")"
+  (%Lam   alts)           → "{" + intercalate " | " (show <$> alts) + "}"
+  (%Recur (just n) _ _)   → "⋯" + n
   (%Recur nothing case _) → show case
+  (%U)                    → "Type"
+  (%Pi    n dom cod)      → "[" + n + ": " + show dom + "] " + show cod
 
 show-stuck .show = λ where
   (%Var   {n} var) → n

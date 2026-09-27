@@ -83,10 +83,10 @@ _⊕_ : Δ ⇶ Γ → Θ ⇶ Γ → (Δ + Θ) ⇶ Γ
 _⊜_ : Δ ⇶ Γ → Θ ⇶ Ξ → (Δ + Θ) ⇶ (Γ + Ξ)
 (ΔΓ ⊜ ΘΞ) = (weaken-r ∙ ΔΓ) ⊕ (weaken ∙ ΘΞ)
   where
-    weaken : Γ ⇶ (Δ + Γ)
-    weaken _ = keep _ ∘ weaken-ptr
-
+    weaken   : Γ ⇶ (Δ + Γ)
     weaken-r : Γ ⇶ (Γ + Δ)
+
+    weaken   _ = keep _ ∘ weaken-ptr
     weaken-r _ = keep _ ∘ weaken-ptr-r
 
 {-
@@ -110,6 +110,8 @@ apply sub value = do
     (%Ctor  ctor values)  → ⦇ (%Ctor ctor) (for values (apply sub)) ⦈
     (%Lam   cases)        → ⦇  %Lam (for cases (applyₘ sub)) ⦈
     (%Recur n case trees) → ⦇ (%Recur n) (applyₜ sub case) (for trees (applyₜ sub)) ⦈
+    (%U)                  → ⦇  %U ⦈
+    (%Pi    n dom cod)    → ⦇ (%Pi n) (apply sub dom) (apply (keep ⊜ sub) cod) ⦈
 
 applyₘ sub match@(%Match pat value) = do
   ⦇ (%Match pat) (apply (keep ⊜ sub) value) ⦈
@@ -307,9 +309,10 @@ call f x = do
       case-tree trees x case >>= λ where
         (just res) → force res
         nothing    → pure (%Stuck (%Match f x))
-    (%Stuck f)  → ⦇ (%Stuck (%App f x)) ⦈
+    (%Stuck f)        → ⦇ (%Stuck (%App f x)) ⦈
     (%Ctor ctor args) → ⦇ (%Ctor ctor (args + (x ∷ []))) ⦈
-    (%Lam alts) → match x alts alts
+    (%Lam alts)       → match x alts alts
+    other             → err %type-err
 
 applyₛ sub stuck = do
   case stuck of λ where
