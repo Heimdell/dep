@@ -32,7 +32,7 @@ eval expr = do
     (%U)                → ⦇ %U ⦈
     (%Pi n dom cod)     → ⦇ (%Pi n) (eval dom) (eval cod) ⦈
 
-    (%Let value expr) → do
+    (%Let _ value expr) → do
       value ← eval value
       expr  ← eval expr
       apply (push value ⊕ keep) expr
