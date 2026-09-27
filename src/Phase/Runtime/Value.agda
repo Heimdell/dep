@@ -24,8 +24,7 @@ record Match (Γ : Ctx) : Set
 -}
 data Value Γ where
   %Stuck : Stuck Γ → Value Γ
-  %Suc   : Value Γ → Value Γ
-  %Zero  : Value Γ
+  %Ctor  : String → List (Value Γ) → Value Γ
   %Lam   : List (Match Γ) → Value Γ
   %Recur :
     (n      : Maybe Name)
@@ -65,11 +64,6 @@ open Match public
   Various printing. Skip till `M` is defined.
 -}
 instance
-  -- {-# TERMINATING #-}
-  -- show-all : {A : Set} {{ _ : Show A }} → Show (All (const A) Δ)
-  -- show-all {Δ = []}    .show [] = ""
-  -- show-all {Δ = n ∷ _} .show (x ∷ xs) = n + ": " + show x + "; " + show xs
-
   {-# TERMINATING #-}
   show-value : Show (Value Γ)
   show-stuck : Show (Stuck Γ)
@@ -81,8 +75,7 @@ value-vec→string  (n ∷ Δ) (expr ∷ decls) = n + ": " + show expr + "; " + 
 
 show-value .show = λ where
   (%Stuck stuck) → show stuck + "ₛ"
-  (%Suc value)   → "(suc " + show value + ")"
-  (%Zero)        → "0"
+  (%Ctor ctor exprs) → "(" + fold-l _◈_ ctor (show <$> exprs) + ")"
   (%Lam alts)    → "{" + intercalate " | " (show <$> alts) + "}"
   (%Recur (just n) _ _) → "⋯" + n
   (%Recur nothing case _) → show case

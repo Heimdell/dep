@@ -106,10 +106,9 @@ applyₚ sub (%Split pat case) = ⦇ (%Split pat) (applyₜ (keep ⊜ sub) case)
 {-# TERMINATING #-}
 apply sub value = do
   case value of λ where
-    (%Stuck stuck)        →         applyₛ sub stuck
-    (%Suc   value)        → ⦇ %Suc (apply sub value) ⦈
-    (%Zero)               → ⦇ %Zero  ⦈
-    (%Lam   cases)        → ⦇ %Lam (for cases (applyₘ sub)) ⦈
+    (%Stuck stuck)        → applyₛ sub stuck
+    (%Ctor  ctor values)  → ⦇ (%Ctor ctor) (for values (apply sub)) ⦈
+    (%Lam   cases)        → ⦇  %Lam (for cases (applyₘ sub)) ⦈
     (%Recur n case trees) → ⦇ (%Recur n) (applyₜ sub case) (for trees (applyₜ sub)) ⦈
 
 applyₘ sub match@(%Match pat value) = do
@@ -158,10 +157,24 @@ call : (f x : Value Γ) → M (Value Γ)
   If the matching is stuck, return `nothing`.
 -}
 destruct : Value Γ → Pat Δ → M (Maybe (Δ ⇶ Γ))
+
+destruct-all : List (Value Γ) → Pats Δ → M (Maybe (Δ ⇶ Γ))
+destruct-all [] [] = pure (just vacuous)
+destruct-all (val ∷ vals) (pat ∷ pats) = do
+  δ ← destruct     val  pat
+  Δ ← destruct-all vals pats
+  pure do
+    δ ← δ
+    Δ ← Δ
+    pure (Δ ⊕ δ)
+destruct-all vals pats = err %type-err
+
 destruct  value         (%Var n)   = pure (just (push value))
 destruct (%Stuck stuck)  pat       = pure  nothing
-destruct (%Suc val)     (%Suc pat) = destruct val pat
-destruct  %Zero          %Zero     = pure (just vacuous)
+destruct (%Ctor ctor vals) (%Ctor ctor′ pats) = do
+  if ctor == ctor′
+    then destruct-all vals pats
+    else err %no-match
 destruct (%Lam x)        pat       = err %type-err
 destruct  _              _         = err %no-match
 
@@ -201,14 +214,23 @@ split rec (%Lam _) (%Split pat tree) = err %type-err
 {-
   Finally, actual pattern matching!
 -}
-split rec (%Suc arg) (%Split (%Suc pat) tree) = split rec arg (%Split pat tree)
+split rec (%Ctor ctor args) (%Split (%Ctor ctor′ pats) tree) = do
+  if ctor == ctor′
+    then (do
+      case destruct-all args pats of λ where
+        (err e) → err e
+        (ok nothing) → ok nothing
+        (ok (just Δ)) → do
+          tree ← applyₜ (Δ ⊕ keep) tree
+          pure (just (%Recur nothing tree rec)))
+    else err %no-match
 
 {-
   Match Zero witj Zero. Return the subtree of the branch.
 
   {Zero -> rest} Zero => rest
 -}
-split rec %Zero (%Split %Zero tree) = pure (just (%Recur nothing tree rec))
+-- split rec %Zero (%Split %Zero tree) = pure (just (%Recur nothing tree rec))
 
 {-
   Match failed.
@@ -286,8 +308,7 @@ call f x = do
         (just res) → force res
         nothing    → pure (%Stuck (%Match f x))
     (%Stuck f)  → ⦇ (%Stuck (%App f x)) ⦈
-    (%Suc f)    → err %type-err
-    (%Zero)     → err %type-err
+    (%Ctor ctor args) → ⦇ (%Ctor ctor (args + (x ∷ []))) ⦈
     (%Lam alts) → match x alts alts
 
 applyₛ sub stuck = do

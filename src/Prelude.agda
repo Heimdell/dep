@@ -723,3 +723,6 @@ times : {{_ : Monoid A}} → A → ℕ → A
 times a = λ where
   0       → 𝟘
   (suc n) → a + times a n
+
+_◈_ : String → String → String
+a ◈ b = a + " " + b

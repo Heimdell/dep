@@ -19,8 +19,7 @@ record Alt (Γ : Ctx) : Set
 -}
 data Expr (Γ : Ctx) : Set where
   %Var  : (n : Name) → n ∈ Γ → Expr Γ
-  %Suc  : Expr Γ → Expr Γ
-  %Zero : Expr Γ
+  %Ctor : String → List (Expr Γ) → Expr Γ
   %App  : (f x : Expr Γ) → Expr Γ
   %Lam  : List (Alt Γ) → Expr Γ
 
@@ -54,8 +53,7 @@ expr-vec→string  (n ∷ Δ) (expr ∷ decls) = n + ": " + show expr + "; " + e
 instance
   show-expr .show = λ where
     (%Var n _)            → n
-    (%Suc expr)           → "(suc " + show expr + ")"
-    (%Zero)               → "0"
+    (%Ctor ctor exprs)    → "(" + fold-l _◈_ ctor (show <$> exprs) + ")"
     (%App f x)            → "(" + show f + " " + show x + ")"
     (%Lam alts)           → "{" + intercalate ", " (show <$> alts) + "}"
     (%Rec {Δ} δ expr)     → "let " + expr-vec→string Δ δ + "in " + show expr

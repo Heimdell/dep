@@ -26,8 +26,7 @@ eval-case = λ where
 eval expr = do
   case expr of λ where
     (%Var _ var)  → ⦇ (%Stuck (%Var var)) ⦈
-    (%Suc   expr) → ⦇ %Suc (eval expr) ⦈
-    (%Zero)       → ⦇ %Zero ⦈
+    (%Ctor ctor exprs) → ⦇ (%Ctor ctor) (for exprs eval) ⦈
     (%App   f x)  → do f ← eval f; x ← eval x; call f x
     (%Lam   alts) → ⦇ %Lam (for alts alt→match) ⦈
 

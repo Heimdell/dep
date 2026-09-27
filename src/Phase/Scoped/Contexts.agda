@@ -11,4 +11,4 @@ Ctx = List Name
 
 variable
   Γ Δ Θ Ξ : Ctx
-  n       : Name
+  n m     : Name
