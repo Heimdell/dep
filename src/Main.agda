@@ -24,7 +24,7 @@ in
 -}
 expr : Expr []
 expr =
-  %Let {Δ = "add" ∷ []}
+  %Rec {Δ = "add" ∷ []}
    ( %Case
       ( %Split (%Suc (%Var "n")) (%Run (%Lam (%Alt (%Var "m")
           (%Suc (%App (%App
@@ -43,7 +43,7 @@ expr =
       )
    ∷ []
    ) $
-  %Let {Δ = "mult" ∷ []}
+  %Rec {Δ = "mult" ∷ []}
    ( %Case
       ( %Split (%Suc (%Var "n")) (%Run (%Lam (%Alt (%Var "m")
           (%App (%App (%Var "add" (there (there (there (here refl)))))

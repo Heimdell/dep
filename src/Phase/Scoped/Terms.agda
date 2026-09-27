@@ -24,8 +24,10 @@ data Expr (Γ : Ctx) : Set where
   %App  : (f x : Expr Γ) → Expr Γ
   %Lam  : List (Alt Γ) → Expr Γ
 
+  %Let  : Expr Γ → Expr (n ∷ Γ) → Expr Γ
+
   -- let rec
-  %Let  :
+  %Rec  :
     (binds : Vec (Case Expr Δ Γ) (length Δ))
     (cont  : Expr (Δ + Γ))
           → Expr Γ
@@ -51,9 +53,10 @@ expr-vec→string  (n ∷ Δ) (expr ∷ decls) = n + ": " + show expr + "; " + e
 
 instance
   show-expr .show = λ where
-    (%Var n _)        → n
-    (%Suc expr)       → "(suc " + show expr + ")"
-    (%Zero)           → "0"
-    (%App f x)        → "(" + show f + " " + show x + ")"
-    (%Lam alts)       → "{" + intercalate ", " (show <$> alts) + "}"
-    (%Let {Δ} δ expr) → "let " + expr-vec→string Δ δ + "in " + show expr
+    (%Var n _)            → n
+    (%Suc expr)           → "(suc " + show expr + ")"
+    (%Zero)               → "0"
+    (%App f x)            → "(" + show f + " " + show x + ")"
+    (%Lam alts)           → "{" + intercalate ", " (show <$> alts) + "}"
+    (%Rec {Δ} δ expr)     → "let " + expr-vec→string Δ δ + "in " + show expr
+    (%Let {n} value expr) → "let " + n + " = " + show value + " in " + show expr

@@ -30,7 +30,13 @@ eval expr = do
     (%Zero)       → ⦇ %Zero ⦈
     (%App   f x)  → do f ← eval f; x ← eval x; call f x
     (%Lam   alts) → ⦇ %Lam (for alts alt→match) ⦈
-    (%Let Δ expr) → do
+
+    (%Let value expr) → do
+      value ← eval value
+      expr  ← eval expr
+      apply (push value ⊕ keep) expr
+
+    (%Rec Δ expr) → do
       Δ    ← for Δ eval-case
       expr ← eval expr
       apply (recure Δ ⊕ keep) expr
