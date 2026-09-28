@@ -19,10 +19,10 @@ module _ where
   Zeroₚ = %Ctor "Zero" []
 
   Sucₑ : Expr Γ → Expr Γ
-  Sucₑ expr = %Ctor "Suc" (expr ∷ [])
+  Sucₑ expr = %App (%Ctor "Suc") expr
 
   Zeroₑ : Expr Γ
-  Zeroₑ = %Ctor "Zero" []
+  Zeroₑ = %Ctor "Zero"
 
   ⟨_◂_⟩ : (f x : Expr Γ) → Expr Γ
   ⟨ f ◂ x ⟩ = %App f x

@@ -19,7 +19,7 @@ record Alt (Γ : Ctx) : Set
 -}
 data Expr (Γ : Ctx) : Set where
   %Var  : (n : Name) → n ∈ Γ → Expr Γ
-  %Ctor : String → List (Expr Γ) → Expr Γ
+  %Ctor : String → Expr Γ
   %App  : (f x : Expr Γ) → Expr Γ
   %Lam  : List (Alt Γ) → Expr Γ
 
@@ -57,11 +57,16 @@ expr-vec→string [] [] = []
 expr-vec→string  (n ∷ Δ) (expr ∷ decls) =
   hang (decl⟨ n ⟩ ◈ `=`) (pp expr) ∷ expr-vec→string Δ decls
 
+call-spine : Expr Γ → List Doc
+call-spine = λ where
+  (%App f x) → call-spine f + (pp x ∷ [])
+  other      → pp other ∷ []
+
 instance
   show-expr .pp = λ where
     (%Var  n _)               → use⟨ n ⟩
-    (%Ctor ctor exprs)        → `⟨` sep (ctor⟨ ctor ⟩ ∷ (pp <$> exprs)) `⟩`
-    (%App  f x)               → `⟨` (pp f ◈ pp x) `⟩`
+    (%Ctor ctor)              → ctor⟨ ctor ⟩
+    p@(%App  f x)             → `⟨` sep (call-spine p) `⟩`
     (%Lam  alts)              → vcat (pp <$> alts)
     (%Let  {n} ty value expr) → vcat ( `let`
                                      ∷ nest (hang (decl⟨ n ⟩ ◈ `:`) (pp ty))

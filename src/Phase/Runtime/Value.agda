@@ -80,17 +80,28 @@ value-vec→string  (n ∷ Δ) (expr ∷ decls) =
   hang (text n ◈ `=`) (pp expr) ∷ value-vec→string Δ decls
 
 show-value .pp = λ where
-  (%Stuck stuck)          → pp stuck + `ₛ`
-  (%Ctor  ctor exprs)     → `⟨` fold-l _◈_ (green (text ctor)) (pp <$> exprs) `⟩`
+  (%Stuck stuck)          → pp stuck
+  (%Ctor  ctor [])        → ctor⟨ ctor ⟩
+  (%Ctor  ctor exprs)     → `⟨` sep (ctor⟨ ctor ⟩ ∷ (pp <$> exprs)) `⟩`
   (%Lam   alts)           → vcat (pp <$> alts)
   (%Recur (just n) _ _)   → rec⟨ n ⟩
   (%Recur nothing case _) → pp case
   (%U)                    → `Type`
   (%Pi    n dom cod)      → `[` text n + `:` ◈ pp dom `]` ◈ pp cod
 
+call-spine  : Stuck Γ → List Doc
+call-spine′ : Value Γ → List Doc
+call-spine = λ where
+  (%App   f x) → call-spine  f + (pp x ∷ [])
+  (%Match f x) → call-spine′ f + (pp x ∷ [])
+  other        → pp other ∷ []
+
+call-spine′ = λ where
+  (%Stuck s) → call-spine s
+  other      → pp other ∷ []
+
 show-stuck .pp = λ where
   (%Var   {n} var) → use⟨ n ⟩
-  (%App       f x) → `⟨` (pp f ◈ pp x) `⟩`
-  (%Match     f x) → `[` (pp f ◈ pp x) `]`
+  p                → `⟨` sep (call-spine p) `⟩`
 
 show-match .pp (%Match pat body) = hang (pp pat ◈ `⇒`) (pp body)
