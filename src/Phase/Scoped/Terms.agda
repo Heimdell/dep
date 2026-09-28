@@ -43,23 +43,36 @@ record Alt Γ where
     body : Expr (δ + Γ)  -- body of the alt
 open Alt
 
+open import Pretty
+open import Pretty.Syntax
+
 instance
   {-# TERMINATING #-}
-  show-expr : Show (Expr Γ)
-  show-alt : Show (Alt Γ)
-  show-alt .show (%Alt pat body) = show pat + " ⇒ " + show body
+  show-expr : PP (Expr Γ)
+  show-alt : PP (Alt Γ)
+  show-alt .pp (%Alt pat body) = hang (pp pat ◈ `⇒`) (pp body)
 
-expr-vec→string : (Δ : Ctx) → Vec (Case Expr Ξ Γ) (length Δ) → String
-expr-vec→string [] [] = 𝟘
-expr-vec→string  (n ∷ Δ) (expr ∷ decls) = n + ": " + show expr + "; " + expr-vec→string Δ decls
+expr-vec→string : (Δ : Ctx) → Vec (Case Expr Ξ Γ) (length Δ) → List Doc
+expr-vec→string [] [] = []
+expr-vec→string  (n ∷ Δ) (expr ∷ decls) =
+  hang (decl⟨ n ⟩ ◈ `=`) (pp expr) ∷ expr-vec→string Δ decls
 
 instance
-  show-expr .show = λ where
-    (%Var  n _)               → n
-    (%Ctor ctor exprs)        → "(" + fold-l _◈_ ctor (show <$> exprs) + ")"
-    (%App  f x)               → "(" + show f + " " + show x + ")"
-    (%Lam  alts)              → "{" + intercalate ", " (show <$> alts) + "}"
-    (%Rec  {Δ} δ expr)        → "let " + expr-vec→string Δ δ + "in " + show expr
-    (%Let  {n} ty value expr) → "let " + n + ": " + show ty + " = " + show value + " in " + show expr
-    (%U)                      → "Type"
-    (%Pi   n dom cod)         → "[" + n + ": " + show dom + "] " + show cod
+  show-expr .pp = λ where
+    (%Var  n _)               → use⟨ n ⟩
+    (%Ctor ctor exprs)        → `⟨` sep (ctor⟨ ctor ⟩ ∷ (pp <$> exprs)) `⟩`
+    (%App  f x)               → `⟨` (pp f ◈ pp x) `⟩`
+    (%Lam  alts)              → vcat (pp <$> alts)
+    (%Let  {n} ty value expr) → vcat ( `let`
+                                     ∷ nest (hang (decl⟨ n ⟩ ◈ `:`) (pp ty))
+                                     ∷ nest (hang (decl⟨ n ⟩ ◈ `=`) (pp value))
+                                     ∷ pp expr
+                                     ∷ []
+                                     )
+    (%U)                      → `Type`
+    (%Pi   n dom cod)         → `[` text n + `:` ◈ pp dom `]` ◈ pp cod
+    (%Rec  {Δ} δ expr)        → vcat ( `let-rec`
+                                     ∷ nest (vcat (expr-vec→string Δ δ))
+                                     ∷ pp expr
+                                     ∷ []
+                                     )

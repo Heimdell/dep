@@ -211,7 +211,7 @@ import      Data.String as String
 import      Data.String.Properties as String
 open import Data.String
   using (String; fromList; toList; lines; unlines; unwords; uncons)
-  renaming (_++_ to _◇_; replicate to replicate-str)
+  renaming (_++_ to _◇_; replicate to replicate-str; length to strlen)
   public
 
 record Monoid (S : Set) : Set where
@@ -723,6 +723,3 @@ times : {{_ : Monoid A}} → A → ℕ → A
 times a = λ where
   0       → 𝟘
   (suc n) → a + times a n
-
-_◈_ : String → String → String
-a ◈ b = a + " " + b

@@ -62,31 +62,35 @@ record Match Γ where
     body : Value (δ + Γ)  -- body of the alt
 open Match public
 
+open import Pretty
+open import Pretty.Syntax
+
 {-
   Various printing. Skip till `M` is defined.
 -}
 instance
   {-# TERMINATING #-}
-  show-value : Show (Value Γ)
-  show-stuck : Show (Stuck Γ)
-  show-match : Show (Match Γ)
+  show-value : PP (Value Γ)
+  show-stuck : PP (Stuck Γ)
+  show-match : PP (Match Γ)
 
-value-vec→string : (Δ : Ctx) → Vec (Value Γ) (length Δ) → String
-value-vec→string [] [] = 𝟘
-value-vec→string  (n ∷ Δ) (expr ∷ decls) = n + ": " + show expr + "; " + value-vec→string Δ decls
+value-vec→string : (Δ : Ctx) → Vec (Value Γ) (length Δ) → List Doc
+value-vec→string [] [] = []
+value-vec→string  (n ∷ Δ) (expr ∷ decls) =
+  hang (text n ◈ `=`) (pp expr) ∷ value-vec→string Δ decls
 
-show-value .show = λ where
-  (%Stuck stuck)          → show stuck + "ₛ"
-  (%Ctor  ctor exprs)     → "(" + fold-l _◈_ ctor (show <$> exprs) + ")"
-  (%Lam   alts)           → "{" + intercalate " | " (show <$> alts) + "}"
-  (%Recur (just n) _ _)   → "⋯" + n
-  (%Recur nothing case _) → show case
-  (%U)                    → "Type"
-  (%Pi    n dom cod)      → "[" + n + ": " + show dom + "] " + show cod
+show-value .pp = λ where
+  (%Stuck stuck)          → pp stuck + `ₛ`
+  (%Ctor  ctor exprs)     → `⟨` fold-l _◈_ (green (text ctor)) (pp <$> exprs) `⟩`
+  (%Lam   alts)           → vcat (pp <$> alts)
+  (%Recur (just n) _ _)   → rec⟨ n ⟩
+  (%Recur nothing case _) → pp case
+  (%U)                    → `Type`
+  (%Pi    n dom cod)      → `[` text n + `:` ◈ pp dom `]` ◈ pp cod
 
-show-stuck .show = λ where
-  (%Var   {n} var) → n
-  (%App       f x) → "(" + show f + " " + show x + ")"
-  (%Match     f x) → "[" + show f + " " + show x + "]"
+show-stuck .pp = λ where
+  (%Var   {n} var) → use⟨ n ⟩
+  (%App       f x) → `⟨` (pp f ◈ pp x) `⟩`
+  (%Match     f x) → `[` (pp f ◈ pp x) `]`
 
-show-match .show (%Match pat body) = show pat + " ⇒ " + show body
+show-match .pp (%Match pat body) = hang (pp pat ◈ `⇒`) (pp body)

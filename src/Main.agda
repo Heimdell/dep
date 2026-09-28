@@ -84,10 +84,12 @@ expr = %Rec {Δ = "add" ∷ []}
     ⟨ Var "mult" ◂ (Sucₑ (Sucₑ Zeroₑ)) ⟩
   )
 
+open import Pretty
+
 main : IO ⊤
 main = do
-  putStrLn (show expr)
+  putStrLn (pretty expr)
   putStrLn "  ⇒"
   case (eval expr) of λ where
-    (ok  value) -> putStrLn ("ok " + show value)
-    (err error) -> putStrLn ("err " + show error)
+    (ok  value) -> putStrLn (pretty value)
+    (err error) -> putStrLn (pretty error)

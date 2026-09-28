@@ -16,15 +16,19 @@ data Pat where
   %Var  : (n : Name)               → Pat (n ∷ [])  -- variable
   %Ctor : (ctor : String) → Pats Δ → Pat Δ         -- (Suc <pat>)
 
+open import Pretty
+open import Pretty.Syntax
+
 instance
   {-# TERMINATING #-}
-  show-pat  : Show (Pat  Δ)
-  show-pats : Show (Pats Δ)
+  show-pat  : PP (Pat  Δ)
 
-  show-pat .show = λ where
-    (%Var  n)         → n
-    (%Ctor ctor pats) → "(" + ctor + show pats + ")"
+show-pats : Pats Δ → List Doc
 
-  show-pats .show = λ where
-    [] → ""
-    (pat ∷ pats) → " " + show pat + show pats
+show-pat .pp = λ where
+  (%Var  n)         → decl⟨ n ⟩
+  (%Ctor ctor pats) → `⟨` (sep (ctor⟨ ctor ⟩ ∷ show-pats pats)) `⟩`
+
+show-pats = λ where
+  []           → []
+  (pat ∷ pats) → pp pat ∷ show-pats pats

@@ -30,13 +30,15 @@ data Case S Δ Γ where
   %Run  : S (Δ + Γ)          → Case S Δ Γ  -- tree is done; you can apply it as normal
   %Case : List (Split S Δ Γ) → Case S Δ Γ  -- we still haven't matched enough of the params
 
+open import Pretty
+
 instance
   {-# TERMINATING #-}
-  show-tree  : {S : Ctx → Set} {{_ : {Δ : Ctx} → Show (S Δ)}} → Show (Case S Δ Γ)
-  show-split : {S : Ctx → Set} {{_ : {Δ : Ctx} → Show (S Δ)}} → Show (Split S Δ Γ)
+  show-tree  : {S : Ctx → Set} {{_ : {Δ : Ctx} → PP (S Δ)}} → PP (Case  S Δ Γ)
+  show-split : {S : Ctx → Set} {{_ : {Δ : Ctx} → PP (S Δ)}} → PP (Split S Δ Γ)
 
-  show-split .show (%Split pat body) = show pat + " ⇒ " + show body
+  show-split .pp (%Split pat body) = hang (pp pat ◈ MAGENTA (text "⇒")) (pp body)
 
-  show-tree .show = λ where
-    (%Run  plain) → show plain
-    (%Case cases) → "{" + intercalate " | " (show <$> cases) + "}"
+  show-tree .pp = λ where
+    (%Run  plain) → pp plain
+    (%Case cases) → vcat (pp <$> cases)

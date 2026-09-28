@@ -15,13 +15,16 @@ data Err : Set where
   %no-match : Err
   %no-match-lethal : Err
 
+module _ where
 
-instance
-  show-err : Show Err
-  show-err .show = λ where
-    %type-err        → "type error"
-    %no-match        → "no match"
-    %no-match-lethal → "no match for real"
+  open import Pretty
+
+  instance
+    show-err : PP Err
+    show-err .pp = λ where
+      %type-err        → text "type error"
+      %no-match        → text "no match"
+      %no-match-lethal → text "no match for real"
 
 {-
   The monad we work in.
