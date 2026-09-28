@@ -71,6 +71,7 @@ instance
     (%Let  {n} ty value expr) → vcat ( `let`
                                      ∷ nest (hang (decl⟨ n ⟩ ◈ `:`) (pp ty))
                                      ∷ nest (hang (decl⟨ n ⟩ ◈ `=`) (pp value))
+                                     ∷ 𝟘
                                      ∷ pp expr
                                      ∷ []
                                      )
@@ -78,6 +79,7 @@ instance
     (%Pi   n dom cod)         → `[` text n + `:` ◈ pp dom `]` ◈ pp cod
     (%Rec  {Δ} δ expr)        → vcat ( `let-rec`
                                      ∷ nest (vcat (expr-vec→string Δ δ))
+                                     ∷ 𝟘
                                      ∷ pp expr
                                      ∷ []
                                      )

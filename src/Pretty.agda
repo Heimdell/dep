@@ -122,3 +122,6 @@ open PP {{...}} public
 
 pretty : {A : Set} {{_ : PP A}} → A → String
 pretty = intercalate "\n" ∘ render 0 ∘ norm ∘ pp
+
+put : Doc → IO ⊤
+put = putStrLn ∘ intercalate "\n" ∘ render 0 ∘ norm

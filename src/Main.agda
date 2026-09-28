@@ -88,8 +88,9 @@ open import Pretty
 
 main : IO ⊤
 main = do
-  putStrLn (pretty expr)
-  putStrLn "  ⇒"
+  putStrLn "Program"
+  put (nest (pp expr))
+  putStrLn "Evaluates to"
   case (eval expr) of λ where
-    (ok  value) -> putStrLn (pretty value)
-    (err error) -> putStrLn (pretty error)
+    (ok  value) -> put (nest (pp value))
+    (err error) -> put (nest (pp error))
