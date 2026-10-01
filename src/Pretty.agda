@@ -7,12 +7,14 @@ data Size : Set where
   %Infinite : Size
 
 instance
-  monoid-size : Monoid Size
-  monoid-size .𝟘 = %Finite 𝟘
-  monoid-size ._+_ = λ where
+  semigroup-size : RawSemigroup Size
+  semigroup-size .add = λ where
     (%Finite x) (%Finite x₁) → %Finite (x + x₁)
     (%Finite x) %Infinite → %Infinite
     %Infinite _ → %Infinite
+
+  monoid-size : RawMonoid Size
+  monoid-size .empty = %Finite empty
 
 data Doc′ : Set
 
@@ -80,9 +82,11 @@ render indent = λ where
   (fst , %Hang x n y) → render indent x + render (suc indent) y
 
 instance
-  monoid-doc : Monoid Doc
-  monoid-doc .𝟘 = text ""
-  monoid-doc ._+_ a b = cat (a ∷ b ∷ [])
+  semigroup-doc : RawSemigroup Doc
+  semigroup-doc .add a b = cat (a ∷ b ∷ [])
+
+  monoid-doc : RawMonoid Doc
+  monoid-doc .empty = text ""
 
 infixr 5 _◈_
 _◈_ : Doc → Doc → Doc

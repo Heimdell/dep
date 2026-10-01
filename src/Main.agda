@@ -1,12 +1,14 @@
 module Main where
 
 open import Prelude
+
 open import Phase.Scoped.Terms
 open import Phase.Scoped.Case-splits
 open import Phase.Scoped.Patterns
 open import Phase.Runtime.Value using ()
 open import Pass.Runtime.Substitutions using ()
-open import Pass.Runtime.Eval using (eval)
+open import Pass.Runtime.Eval
+open import Data.List.Relation.Unary.Any
 
 module _ where
 
@@ -86,11 +88,13 @@ expr = %Rec {Δ = "add" ∷ []}
 
 open import Pretty
 
+open import Control.Monad.Error
+
 main : IO ⊤
 main = do
   putStrLn "Program"
   put (nest (pp expr))
   putStrLn "Evaluates to"
-  case (eval expr) of λ where
-    (ok  value) -> put (nest (pp value))
-    (err error) -> put (nest (pp error))
+  eval expr .run-error >>= λ where
+    (inj₁ value) -> put (nest (pp value))
+    (inj₂ error) -> put (nest (pp error))

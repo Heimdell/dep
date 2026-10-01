@@ -2,10 +2,11 @@ name: dep-0.1
 include: src
 depend:
   standard-library-2.3
+  prelude
 flags:
   --postfix-projections
   --hidden-argument-puns
   --guardedness
-  --without-K
+  --type-in-type
 
   -WnoUnsupportedIndexedMatch

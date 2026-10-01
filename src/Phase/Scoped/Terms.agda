@@ -50,17 +50,18 @@ instance
   {-# TERMINATING #-}
   show-expr : PP (Expr Γ)
   show-alt : PP (Alt Γ)
-  show-alt .pp (%Alt pat body) = hang (pp pat ◈ `⇒`) (pp body)
-
-expr-vec→string : (Δ : Ctx) → Vec (Case Expr Ξ Γ) (length Δ) → List Doc
-expr-vec→string [] [] = []
-expr-vec→string  (n ∷ Δ) (expr ∷ decls) =
-  hang (decl⟨ n ⟩ ◈ `=`) (pp expr) ∷ expr-vec→string Δ decls
 
 call-spine : Expr Γ → List Doc
 call-spine = λ where
   (%App f x) → call-spine f + (pp x ∷ [])
   other      → pp other ∷ []
+
+show-alt .pp (%Alt pat body) = hang (pp pat ◈ `⇒`) (sep (call-spine body))
+
+expr-vec→string : (Δ : Ctx) → Vec (Case Expr Ξ Γ) (length Δ) → List Doc
+expr-vec→string [] [] = []
+expr-vec→string  (n ∷ Δ) (expr ∷ decls) =
+  hang (decl⟨ n ⟩ ◈ `=`) (pp expr) ∷ expr-vec→string Δ decls
 
 instance
   show-expr .pp = λ where
@@ -71,7 +72,7 @@ instance
     (%Let  {n} ty value expr) → vcat ( `let`
                                      ∷ nest (hang (decl⟨ n ⟩ ◈ `:`) (pp ty))
                                      ∷ nest (hang (decl⟨ n ⟩ ◈ `=`) (pp value))
-                                     ∷ 𝟘
+                                     ∷ empty
                                      ∷ pp expr
                                      ∷ []
                                      )
@@ -79,7 +80,7 @@ instance
     (%Pi   n dom cod)         → `[` text n + `:` ◈ pp dom `]` ◈ pp cod
     (%Rec  {Δ} δ expr)        → vcat ( `let-rec`
                                      ∷ nest (vcat (expr-vec→string Δ δ))
-                                     ∷ 𝟘
+                                     ∷ empty
                                      ∷ pp expr
                                      ∷ []
                                      )

@@ -8,36 +8,40 @@ open import Phase.Scoped.Terms
 open import Phase.Runtime.Value
 open import Pass.Runtime.Substitutions
 
-{-# TERMINATING #-}
-eval : Expr Γ → M (Value Γ)
+open import Control.Monad.Error
 
-alt→match : Alt Γ → M (Match Γ)
-alt→match (%Alt pat body) = ⦇ (%Match pat) (eval body) ⦈
+module _ {M : Set → Set} {{_ : Monad M}} where
 
-{-# TERMINATING #-}
-eval-case  : Case  Expr Δ Γ → M (Case  Value Δ Γ)
-eval-split : Split Expr Δ Γ → M (Split Value Δ Γ)
-eval-split (%Split pat tree) = ⦇ (%Split pat) (eval-case tree) ⦈
+  {-# TERMINATING #-}
+  eval : Expr Γ → T M (Value Γ)
 
-eval-case = λ where
-  (%Run  f)      → ⦇ %Run  (eval f) ⦈
-  (%Case splits) → ⦇ %Case (for splits eval-split) ⦈
+  alt→match : Alt Γ → T M (Match Γ)
+  alt→match (%Alt pat body) = ⦇ (%Match pat) (eval body) ⦈
 
-eval expr = do
-  case expr of λ where
-    (%Var _ var)        → ⦇ (%Stuck (%Var var)) ⦈
-    (%Ctor  ctor)       → ⦇ (%Ctor ctor []) ⦈
-    (%App   f x)        → do f ← eval f; x ← eval x; call f x
-    (%Lam   alts)       → ⦇ %Lam (for alts alt→match) ⦈
-    (%U)                → ⦇ %U ⦈
-    (%Pi n dom cod)     → ⦇ (%Pi n) (eval dom) (eval cod) ⦈
+  {-# TERMINATING #-}
+  eval-case  : Case  Expr Δ Γ → T M (Case  Value Δ Γ)
+  eval-split : Split Expr Δ Γ → T M (Split Value Δ Γ)
+  eval-split (%Split pat tree) = ⦇ (%Split pat) (eval-case tree) ⦈
 
-    (%Let _ value expr) → do
-      value ← eval value
-      expr  ← eval expr
-      apply (push value ⊕ keep) expr
+  eval-case = λ where
+    (%Run  f)      → ⦇ %Run  (eval f) ⦈
+    (%Case splits) → ⦇ %Case (for splits eval-split) ⦈
 
-    (%Rec Δ expr) → do
-      Δ    ← for Δ eval-case
-      expr ← eval expr
-      apply (recure Δ ⊕ keep) expr
+  eval expr = do
+    case expr of λ where
+      (%Var _ var)        → ⦇ (%Stuck (%Var var)) ⦈
+      (%Ctor  ctor)       → ⦇ (%Ctor ctor []) ⦈
+      (%App   f x)        → do f ← eval f; x ← eval x; call f x
+      (%Lam   alts)       → ⦇ %Lam (for alts alt→match) ⦈
+      (%U)                → ⦇ %U ⦈
+      (%Pi n dom cod)     → ⦇ (%Pi n) (eval dom) (eval cod) ⦈
+
+      (%Let _ value expr) → do
+        value ← eval value
+        expr  ← eval expr
+        apply (push value ⊕ keep) expr
+
+      (%Rec Δ expr) → do
+        Δ    ← for Δ eval-case
+        expr ← eval expr
+        apply (recure Δ ⊕ keep) expr
