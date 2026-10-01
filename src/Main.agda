@@ -8,7 +8,7 @@ open import Phase.Scoped.Patterns
 open import Phase.Runtime.Value using ()
 open import Pass.Runtime.Substitutions using ()
 open import Pass.Runtime.Eval
-open import Data.List.Relation.Unary.Any
+open import Data.List.Relation.Unary.Any using (here; there)
 
 module _ where
 
@@ -90,6 +90,10 @@ open import Pretty
 
 open import Control.Monad.Error
 
+open import Lexer
+open import Pass.Lexer
+open import Position
+
 main : IO ⊤
 main = do
   putStrLn "Program"
@@ -98,3 +102,8 @@ main = do
   eval expr .run-error >>= λ where
     (inj₁ value) -> put (nest (pp value))
     (inj₂ error) -> put (nest (pp error))
+  src ← readFile "example/test.dep"
+  res ← lex-file "example/test.dep" src
+  case res of λ where
+    (inj₁ ls) → put (cat (map pp ls))
+    (inj₂ pos) → put (pp pos)

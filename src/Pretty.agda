@@ -129,3 +129,9 @@ pretty = intercalate "\n" ∘ render 0 ∘ norm ∘ pp
 
 put : Doc → IO ⊤
 put = putStrLn ∘ intercalate "\n" ∘ render 0 ∘ norm
+
+instance
+  nat-is-pretty : PP ℕ
+  nat-is-pretty .pp = text ∘ show
+    where
+      open import Data.Nat.Show using (show)

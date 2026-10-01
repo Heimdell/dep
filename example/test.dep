@@ -1,0 +1,33 @@
+
+type nat = data
+  | Suc  : nat -> nat
+  | Zero : nat
+end
+
+type fin (n : nat) = data
+  | Suc  : fin n -> fin (Suc n)
+  | Zero :          fin (Suc n)
+end
+
+type pair (a : type) (b : [x : a] type) = record
+  | .fst : a
+  | .snd : b fst
+end
+
+let rec
+  add : [n: nat] [m: nat] nat;
+  add = function
+    | (Suc n) m -> Suc (add n m);
+    |  Zero   m -> m
+  end
+in
+
+let rec
+  mult : [n: nat] [m: nat] nat; /* multiplication */
+  mult = function
+    | (Suc n) m -> add n (mult n m);
+    |  Zero   m -> Zero
+  end
+in
+
+mult (Suc (Suc Zero))
