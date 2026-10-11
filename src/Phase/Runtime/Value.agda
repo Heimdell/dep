@@ -4,8 +4,8 @@ module Phase.Runtime.Value where
 open import Prelude
 
 open import Phase.Scoped.Contexts
-open import Phase.Scoped.Case-splits
 open import Phase.Scoped.Patterns
+open import Name
 
 {-
   NbE part is quite standard, for some exceptions.
@@ -17,21 +17,37 @@ data   Value (Γ : Ctx) : Set
 data   Stuck (Γ : Ctx) : Set
 record Match (Γ : Ctx) : Set
 
+data   Split (Δ Γ : Ctx) : Set
+record Case  (Δ Γ : Ctx) : Set where
+  inductive
+  constructor %Case
+  field
+    {γ} : Ctx
+    pat : Pat γ
+    body : Split Δ (γ + Γ)
+open Case public
+
+data Split Δ Γ where
+  %Run   : Value (Δ + Γ)   → Split Δ Γ
+  %Split : List (Case Δ Γ) → Split Δ Γ
+
 {-
   Normal form.
 
   `%Recur` (the recursive function body) is here, because it is not, in fact, stuck.
 -}
 data Value Γ where
-  %Stuck : Stuck Γ → Value Γ
-  %Ctor  : String → List (Value Γ) → Value Γ
-  %Lam   : List (Match Γ) → Value Γ
-  %U     : Value Γ
-  %Pi    : (n : Name) → Value Γ → Value (n ∷ Γ) → Value Γ
-  %Recur :
+  %Stuck  : Stuck Γ → Value Γ
+  %Ctor   : Name → List (Value Γ) → Value Γ
+  %Field  : Name → Value Γ
+  %Lam    : List (Match Γ) → Value Γ
+  %Record : List (Name × Value Γ) → Value Γ
+  %U      : Value Γ
+  %Pi     : (n : Name) → Value Γ → Value ([ n ] ∷ Γ) → Value Γ
+  %Recur  :
     (n      : Maybe Name)
-    (body   : Case Value Δ Γ)
-    (recure : Vec (Case Value Δ Γ) (length Δ))
+    (body   : Split Δ Γ)
+    (recure : Vec (Split Δ Γ) (length Δ))
             → Value Γ
 
 {-
@@ -43,9 +59,10 @@ data Value Γ where
   I do not want to make pattern matching more complex than it already is.
 -}
 data Stuck Γ where
-  %Var   : n ∈ Γ → Stuck Γ
+  %Var   : (n : Name) → [ n ] ∈ Γ → Stuck Γ
   %App   : (f : Stuck Γ) (x : Value Γ) → Stuck Γ
   %Match : (f : Value Γ) (x : Value Γ) → Stuck Γ
+  %Get   : (f : Stuck Γ) (n : Name)    → Stuck Γ
 
 {-
   Normal, non-recursive lambda's pattern match in a branch.
@@ -70,9 +87,18 @@ open import Pretty.Syntax
 -}
 instance
   {-# TERMINATING #-}
-  show-value : PP (Value Γ)
-  show-stuck : PP (Stuck Γ)
-  show-match : PP (Match Γ)
+  show-value : PP (Value   Γ)
+  show-stuck : PP (Stuck   Γ)
+  show-match : PP (Match   Γ)
+  show-split : PP (Split Δ Γ)
+  show-case  : PP (Case  Δ Γ)
+
+{-# TERMINATING #-}
+show-case .pp (%Case pat body) = hang (pp pat ◈ MAGENTA (text "⇒")) (pp body)
+
+show-split .pp = λ where
+  (%Run    plain)  → pp plain
+  (%Split  cases)  → vcat (pp <$> cases)
 
 value-vec→string : (Δ : Ctx) → Vec (Value Γ) (length Δ) → List Doc
 value-vec→string [] [] = []
@@ -80,20 +106,23 @@ value-vec→string  (n ∷ Δ) (expr ∷ decls) =
   hang (text n ◈ `=`) (pp expr) ∷ value-vec→string Δ decls
 
 show-value .pp = λ where
-  (%Stuck stuck)          → pp stuck
-  (%Ctor  ctor [])        → ctor⟨ ctor ⟩
-  (%Ctor  ctor exprs)     → `⟨` sep (ctor⟨ ctor ⟩ ∷ (pp <$> exprs)) `⟩`
-  (%Lam   alts)           → vcat (pp <$> alts)
-  (%Recur (just n) _ _)   → rec⟨ n ⟩
-  (%Recur nothing case _) → pp case
-  (%U)                    → `Type`
-  (%Pi    n dom cod)      → `[` text n + `:` ◈ pp dom `]` ◈ pp cod
+  (%Stuck  stuck)          → pp stuck
+  (%Ctor   ctor [])        → ctor⟨ [ ctor ] ⟩
+  (%Field  name)           → field⟨ [ name ] ⟩
+  (%Ctor   ctor exprs)     → `⟨` sep (ctor⟨ [ ctor ] ⟩ ∷ (pp <$> exprs)) `⟩`
+  (%Record fields)         → `⟪` vcat ((λ (n , v) → hang field⟨ [ n ] ⟩ (pp v)) <$> fields) `⟫`
+  (%Lam    alts)           → vcat (pp <$> alts)
+  (%Recur  (just n) _ _)   → rec⟨ [ n ] ⟩
+  (%Recur  nothing case _) → pp case
+  (%U)                     → `Type`
+  (%Pi     n dom cod)      → `[` text [ n ] + `:` ◈ pp dom `]` ◈ pp cod
 
 call-spine  : Stuck Γ → List Doc
 call-spine′ : Value Γ → List Doc
 call-spine = λ where
   (%App   f x) → call-spine  f + (pp x ∷ [])
   (%Match f x) → call-spine′ f + (pp x ∷ [])
+  (%Get   b n) → call-spine  b + (field⟨ [ n ] ⟩ ∷ [])
   other        → pp other ∷ []
 
 call-spine′ = λ where
@@ -101,7 +130,7 @@ call-spine′ = λ where
   other      → pp other ∷ []
 
 show-stuck .pp = λ where
-  (%Var   {n} var) → use⟨ n ⟩
-  p                → `⟨` sep (call-spine p) `⟩`
+  (%Var   n var) → use⟨ [ n ] ⟩
+  p              → `⟨` sep (call-spine p) `⟩`
 
 show-match .pp (%Match pat body) = hang (pp pat ◈ `⇒`) (pp body)

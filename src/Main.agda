@@ -3,28 +3,28 @@ module Main where
 open import Prelude
 
 open import Phase.Scoped.Terms
-open import Phase.Scoped.Case-splits
 open import Phase.Scoped.Patterns
 open import Phase.Runtime.Value using ()
 open import Pass.Runtime.Substitutions using ()
 open import Pass.Runtime.Eval
 open import Data.List.Relation.Unary.Any using (here; there)
+open import Name
 
 module _ where
 
   open import Phase.Scoped.Contexts
 
   Sucₚ : Pat Δ → Pat Δ
-  Sucₚ pat = %Ctor "Suc" (pat ∷ [])
+  Sucₚ pat = %Ctor (♯ "Suc") (pat ∷ [])
 
   Zeroₚ : Pat []
-  Zeroₚ = %Ctor "Zero" []
+  Zeroₚ = %Ctor (♯ "Zero") []
 
   Sucₑ : Expr Γ → Expr Γ
-  Sucₑ expr = %App (%Ctor "Suc") expr
+  Sucₑ expr = %App (%Ctor (♯ "Suc")) expr
 
   Zeroₑ : Expr Γ
-  Zeroₑ = %Ctor "Zero"
+  Zeroₑ = %Ctor (♯ "Zero")
 
   ⟨_◂_⟩ : (f x : Expr Γ) → Expr Γ
   ⟨ f ◂ x ⟩ = %App f x
@@ -37,11 +37,11 @@ module _ where
     shallow : n ∈ (n ∷ Δ)
     shallow = here refl
 
-  Var : (n : Name) ⦃ it : n ∈ Γ ⦄ → Expr Γ
+  Var : (n : Name) ⦃ it : [ n ] ∈ Γ ⦄ → Expr Γ
   Var n ⦃ it ⦄ = %Var n it
 
-  _⇒_ : Pat Θ → Case Expr Δ (Θ + Γ) → Split Expr Δ Γ
-  pat ⇒ body = %Split pat body
+  _⇒_ : Pat Θ → Split Δ (Θ + Γ) → Case Δ Γ
+  pat ⇒ body = %Case pat body
 
   _⇉_ : Pat Θ → Expr (Θ + Γ) → Alt Γ
   pat ⇉ body = %Alt pat body
@@ -60,13 +60,13 @@ module _ where
 --   mult 2
 expr : Expr []
 expr = %Rec {Δ = "add" ∷ []}
-  ( %Case
-      ( Sucₚ (%Var "n") ⇒ %Run (%Lam (%Var "m" ⇉
-          Sucₑ ⟨ ⟨ Var "add" ◂ Var "n" ⟩ ◂ Var "m" ⟩
+  ( %Split
+      ( Sucₚ (%Var (♯ "n")) ⇒ %Run (%Lam (%Var (♯ "m") ⇉
+          Sucₑ ⟨ ⟨ Var (♯ "add") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩
         ∷ []))
-      ∷ %Var "n" ⇒ %Case
-          ( Sucₚ (%Var "m") ⇒ %Run (Sucₑ ⟨ ⟨ Var "add" ◂ Var "n" ⟩ ◂ Var "m" ⟩)
-          ∷       %Var "m"  ⇒ %Run  Zeroₑ
+      ∷ %Var (♯ "n") ⇒ %Split
+          ( Sucₚ (%Var (♯ "m")) ⇒ %Run (Sucₑ ⟨ ⟨ Var (♯ "add") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩)
+          ∷       %Var (♯ "m")  ⇒ %Run  Zeroₑ
           ∷ []
           )
       ∷ []
@@ -74,16 +74,16 @@ expr = %Rec {Δ = "add" ∷ []}
   ∷ []
   )
   (%Rec {Δ = "mult" ∷ []}
-    ( %Case
-        ( Sucₚ (%Var "n") ⇒ %Run (%Lam (%Var "m" ⇉
-            ⟨ ⟨ (Var "add") ◂ Var "m" ⟩ ◂ ⟨ ⟨ Var "mult" ◂ Var "n" ⟩ ◂ Var "m" ⟩ ⟩
+    ( %Split
+        ( Sucₚ (%Var (♯ "n")) ⇒ %Run (%Lam (%Var (♯ "m") ⇉
+            ⟨ ⟨ (Var (♯ "add")) ◂ Var (♯ "m") ⟩ ◂ ⟨ ⟨ Var (♯ "mult") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩ ⟩
           ∷ []))
-        ∷ Zeroₚ ⇒ %Run (%Lam (%Var "m" ⇉ Zeroₑ ∷ []))
+        ∷ Zeroₚ ⇒ %Run (%Lam (%Var (♯ "m") ⇉ Zeroₑ ∷ []))
         ∷ []
         )
     ∷ []
     )
-    ⟨ Var "mult" ◂ (Sucₑ (Sucₑ Zeroₑ)) ⟩
+    ⟨ Var (♯ "mult") ◂ (Sucₑ (Sucₑ Zeroₑ)) ⟩
   )
 
 open import Pretty
@@ -105,5 +105,5 @@ main = do
   src ← readFile "example/test.dep"
   res ← lex-file "example/test.dep" src
   case res of λ where
-    (inj₁ ls) → put (cat (map pp ls))
+    (inj₁ (ls , end)) → put (vcat (cat (map pp ls) ∷ pp end ∷ []))
     (inj₂ pos) → put (pp pos)

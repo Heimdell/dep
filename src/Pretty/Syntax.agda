@@ -7,6 +7,9 @@ open import Pretty
 `let` : Doc
 `let` = MAGENTA (text "let")
 
+`with` : Doc
+`with` = MAGENTA (text "with")
+
 `let-rec` : Doc
 `let-rec` = MAGENTA (text "let rec")
 
@@ -15,6 +18,9 @@ open import Pretty
 
 `⟨`_`⟩` : Doc → Doc
 `⟨` doc `⟩` = black (text "(") + doc + black (text ")")
+
+`⟪`_`⟫` : Doc → Doc
+`⟪` doc `⟫` = black (text "{") + doc + black (text "}")
 
 `[`_`]` : Doc → Doc
 `[` doc `]` = black (text "[") + doc + black (text "]")
@@ -38,3 +44,6 @@ decl⟨ var ⟩ = YELLOW (text var)
 
 ctor⟨_⟩ : String → Doc
 ctor⟨ ctor ⟩ = green (text ctor)
+
+field⟨_⟩ : String → Doc
+field⟨ ctor ⟩ = magenta (text ctor)

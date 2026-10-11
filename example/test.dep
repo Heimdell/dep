@@ -1,33 +1,92 @@
+/*
+ * 'data' NAME PARAMS ':' INDICE-TELESCOPE '*'
+ *  '{' CTORS '}'
+ */
+data eq {a : *} (x : a) : a -> *
+  { Refl : eq x x }
 
-type nat = data
-  | Suc  : nat -> nat
+/*
+ * NAME NAMED-PARAMS ':' REST-OF-THE-TELESCOPE
+ */
+subst
+  {a   : *}
+  {x y : a}
+  (e   : eq x y)
+  (p   : a -> *)
+  (pa  : p x)
+       : p y;
+subst = {Refl, _, pa -> pa};
+
+trans
+  {a     : *}
+  {x y z : a}
+  (e     : eq x y)
+  (f     : eq y z)
+         : eq x z;
+trans = {f, Refl -> f};
+
+data nat : *
+  { Suc  : nat -> nat
   | Zero : nat
-end
+  }
 
-type fin (n : nat) = data
-  | Suc  : fin n -> fin (Suc n)
-  | Zero :          fin (Suc n)
-end
+data fin : nat -> *
+  { Suc  {n : nat} : fin n -> fin (Suc n)
+  | Zero {n : nat} :          fin (Suc n)
+  }
 
-type pair (a : type) (b : [x : a] type) = record
-  | .fst : a
-  | .snd : b fst
-end
+data vec (a : *) : nat -> *
+  { Cons {n : nat} : a -> vec a n -> vec a (Suc n)
+  | Nil            :                 vec a  Zero
+  }
 
-let rec
-  add : [n: nat] [m: nat] nat;
-  add = function
-    | (Suc n) m -> Suc (add n m);
-    |  Zero   m -> m
-  end
-in
+index {a : *} {n : nat} : fin n -> vec a n;
+index =
+  { Suc n, Cons x xs -> index n xs
+  | Zero,  Cons x xs -> x
+  };
 
-let rec
-  mult : [n: nat] [m: nat] nat; /* multiplication */
-  mult = function
-    | (Suc n) m -> add n (mult n m);
-    |  Zero   m -> Zero
-  end
-in
+record pair (a : *) (b : *)
+  { .fst : a
+  | .snd : b
+  }
 
-mult (Suc (Suc Zero))
+mk-pair {a b : *} (x : a) (y : b) : pair a b;
+mk-pair
+  { x, y .fst -> x
+  | x, y .snd -> y
+  };
+
+vec-map {n : nat} {a b : *} (f : a -> b) : vec a n -> vec b n;
+vec-map
+  { f, Cons x xs -> Cons (f x) (list-map f xs)
+  | f, Nil       -> Nil
+  };
+
+zip {n : nat} {a b : *} (as : vec a n) (bs : vec b n) : vec (pair a b) n;
+zip
+  { Cons a as, Cons b bs -> Cons (mk-pair a b) (zip as bs)
+  | Nil,       Nil       -> Nil
+  };
+
+unzip {n : nat} {a b : *} (ps : vec (pair a b) n) : pair (vec a n) (vec b n);
+unzip
+  { ps .fst -> vec-map {p -> p.fst} ps
+  | ps .snd -> vec-map {p -> p.snd} ps
+  };
+
+add (n m : nat) : nat;
+add =
+  { Suc n, m -> Suc (add n m);
+  | Zero,  m -> m
+  }
+
+/* multiplication */
+mult (n m : nat) : nat;
+mult =
+  { Suc n, m -> add n (mult n m);
+  | Zero,  m -> Zero
+  }
+
+do
+  mult (Suc (Suc Zero))

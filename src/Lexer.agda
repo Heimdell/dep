@@ -110,10 +110,10 @@ module _ where
   instance
     payload-is-pretty : PP Payload
     payload-is-pretty .pp = λ where
-      (%Var     var) → yellow (pp var) + text "_"
-      (%Ctor    VAR) → green (pp VAR) + text "_"
-      (%Field   VAR) → red (pp VAR) + text "_"
-      (%Keyword kw)  → magenta (text kw) + text "_"
+      (%Var     var) → yellow (pp var) + text " "
+      (%Ctor    VAR) → green (pp VAR) + text " "
+      (%Field   VAR) → red (pp VAR) + text " "
+      (%Keyword kw)  → magenta (text kw) + text " "
 
 
 var : List String → Lexer Payload
@@ -214,11 +214,14 @@ lexemes names NAMES symbols = do
   sep-by (lexeme names NAMES symbols) spaces
     <* not-followed-by any-char
 
-lex : (names NAMES symbols : List String) (fname source : String) → IO (List Lexeme ⊎ Pos)
+position : Lexer Pos
+position = pos <$> lift get
+
+lex : (names NAMES symbols : List String) (fname source : String) → IO ((List Lexeme × Pos) ⊎ Pos)
 lex names NAMES symbols fname source = do
   let pos₀ = start fname source
   res ←
-    lexemes names NAMES symbols
+    ⦇ lexemes names NAMES symbols , position ⦈
       .run-maybe
       .run-state (%Input source pos₀)
   case res of λ where

@@ -3,12 +3,9 @@ module Phase.Scoped.Contexts where
 
 open import Prelude
 
-Name : Set
-Name = String
-
 Ctx : Set
-Ctx = List Name
+Ctx = List String
 
 variable
   Γ Δ Θ Ξ : Ctx
-  n m     : Name
+  n m     : String

@@ -4,8 +4,8 @@ module Pass.Runtime.Substitutions where
 open import Prelude
 open import Phase.Scoped.Contexts
 open import Phase.Runtime.Value
-open import Phase.Scoped.Case-splits
 open import Phase.Scoped.Patterns
+open import Name
 
 {-
   Situations.
@@ -14,6 +14,7 @@ data Err : Set where
   %type-err        : Err
   %no-match        : Err
   %no-match-lethal : Err
+  %no-field        : Err
 
 module _ where
 
@@ -25,6 +26,7 @@ module _ where
       %type-err        → text "type error"
       %no-match        → text "no match"
       %no-match-lethal → text "no match for real"
+      %no-field        → text "no field"
 
 open import Control.Monad.Error
 
@@ -39,13 +41,13 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       to value in a destination context.
   -}
   _⇶_ : (Δ Γ : Ctx) → Set
-  Δ ⇶ Γ = ∀ n → n ∈ Δ → T M (Value Γ)
+  Δ ⇶ Γ = (n : Name) → [ n ] ∈ Δ → T M (Value Γ)
 
   {-
     Unit substitution, does nothing.
   -}
   keep : Γ ⇶ Γ
-  keep _ = pure ∘ %Stuck ∘ %Var
+  keep n = pure ∘ %Stuck ∘ %Var n
 
   {-
     Vacuous substitution.
@@ -68,17 +70,19 @@ module _ {M : Set → Set} {{_ : Monad M}} where
     Compose two substitutions sequentally.
   -}
   _∙_ : Ξ ⇶ Γ → Δ ⇶ Ξ → Δ ⇶ Γ
-  (ΞΓ ∙ ΔΞ) _ var = do
-    value ← ΔΞ _ var
+  (ΞΓ ∙ ΔΞ) n var = do
+    value ← ΔΞ n var
     apply ΞΓ value
+
+  infixr 3 _∙_
 
   {-
     Merge two subsitutions.
   -}
   _⊕_ : Δ ⇶ Γ → Θ ⇶ Γ → (Δ + Θ) ⇶ Γ
-  (ΔΓ ⊕ ΘΞ) _ var with split-ptr var
-  (ΔΓ ⊕ ΘΞ) _ var | inj₂ top = ΔΓ _ top
-  (ΔΓ ⊕ ΘΞ) _ var | inj₁ bot = ΘΞ _ bot
+  (ΔΓ ⊕ ΘΞ) n var with split-ptr var
+  (ΔΓ ⊕ ΘΞ) n var | inj₂ top = ΔΓ n top
+  (ΔΓ ⊕ ΘΞ) n var | inj₁ bot = ΘΞ n bot
 
   {-
     Compose two substitutions in parallel.
@@ -89,32 +93,34 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       weaken   : Γ ⇶ (Δ + Γ)
       weaken-r : Γ ⇶ (Γ + Δ)
 
-      weaken   _ = keep _ ∘ weaken-ptr
-      weaken-r _ = keep _ ∘ weaken-ptr-r
+      weaken   n = keep n ∘ weaken-ptr
+      weaken-r n = keep n ∘ weaken-ptr-r
 
   {-
     Apply substitutions to variuos things.
   -}
-  applyₛ : Δ ⇶ Γ → Stuck         Δ → T M (Value         Γ)
-  applyₘ : Δ ⇶ Γ → Match         Δ → T M (Match         Γ)
-  applyₜ : Δ ⇶ Γ → Case  Value Θ Δ → T M (Case  Value Θ Γ)
-  applyₚ : Δ ⇶ Γ → Split Value Θ Δ → T M (Split Value Θ Γ)
+  applyₛ : Δ ⇶ Γ → Stuck   Δ → T M (Value   Γ)
+  applyₘ : Δ ⇶ Γ → Match   Δ → T M (Match   Γ)
+  applyₜ : Δ ⇶ Γ → Split Θ Δ → T M (Split Θ Γ)
+  applyₚ : Δ ⇶ Γ → Case  Θ Δ → T M (Case  Θ Γ)
 
   applyₜ sub = λ where
-    (%Run  plain) → ⦇ %Run  (apply (keep ⊜ sub) plain) ⦈
-    (%Case cases) → ⦇ %Case (for cases (applyₚ sub)) ⦈
+    (%Run   plain) → ⦇ %Run   (apply (keep ⊜ sub) plain) ⦈
+    (%Split cases) → ⦇ %Split (for cases (applyₚ sub)) ⦈
 
-  applyₚ sub (%Split pat case) = ⦇ (%Split pat) (applyₜ (keep ⊜ sub) case) ⦈
+  applyₚ sub (%Case pat case) = ⦇ (%Case pat) (applyₜ (keep ⊜ sub) case) ⦈
 
   {-# TERMINATING #-}
   apply sub value = do
     case value of λ where
-      (%Stuck stuck)        → applyₛ sub stuck
-      (%Ctor  ctor values)  → ⦇ (%Ctor ctor) (for values (apply sub)) ⦈
-      (%Lam   cases)        → ⦇  %Lam (for cases (applyₘ sub)) ⦈
-      (%Recur n case trees) → ⦇ (%Recur n) (applyₜ sub case) (for trees (applyₜ sub)) ⦈
-      (%U)                  → ⦇  %U ⦈
-      (%Pi    n dom cod)    → ⦇ (%Pi n) (apply sub dom) (apply (keep ⊜ sub) cod) ⦈
+      (%Stuck  stuck)        → applyₛ sub stuck
+      (%Ctor   ctor values)  → ⦇ (%Ctor ctor) (for values (apply sub)) ⦈
+      (%Field  name)         → ⦇ (%Field name) ⦈
+      (%Record fields)       → ⦇  %Record (for fields (traverse ⦃ pair-is-traversable ⦄ (apply sub))) ⦈
+      (%Lam    cases)        → ⦇  %Lam (for cases (applyₘ sub)) ⦈
+      (%Recur  n case trees) → ⦇ (%Recur n) (applyₜ sub case) (for trees (applyₜ sub)) ⦈
+      (%U)                   → ⦇  %U ⦈
+      (%Pi     n dom cod)    → ⦇ (%Pi n) (apply sub dom) (apply (keep ⊜ sub) cod) ⦈
 
   applyₘ sub match@(%Match pat value) = do
     ⦇ (%Match pat) (apply (keep ⊜ sub) value) ⦈
@@ -148,7 +154,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
     The name is carried along so we do not print the bodies when they weren't
     at least partially applied.
   -}
-  recure : Vec (Case Value Δ Γ) (length Δ) → Δ ⇶ Γ
+  recure : Vec (Split Δ Γ) (length Δ) → Δ ⇶ Γ
   recure funs n var = pure (%Recur (just n) (lookup funs (index-of var)) funs)
 
   {-
@@ -176,7 +182,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
   destruct  value         (%Var n)   = pure (push value)
   destruct (%Stuck stuck)  pat       = loose
   destruct (%Ctor ctor vals) (%Ctor ctor′ pats) = do
-    if ctor == ctor′
+    if [ ctor ] == [ ctor′ ]
       then destruct-all vals pats
       else lift (throw %no-match)
   destruct (%Lam x)        pat       = lift $ throw %type-err
@@ -191,7 +197,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
 
     If result is `nothing`, the match got stuck.
   -}
-  split : Vec (Case Value Δ Γ) (length Δ) → Value Γ → Split Value Δ Γ → MaybeT (T M) (Value Γ)
+  split : Vec (Split Δ Γ) (length Δ) → Value Γ → Case Δ Γ → MaybeT (T M) (Value Γ)
 
   {-
     If the pattern is irrefutable, pass whatever argument in.
@@ -200,7 +206,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
 
     {n -> rest} arg => rest [n / arg]
   -}
-  split rec arg (%Split (%Var n) tree) = do
+  split rec arg (%Case (%Var n) tree) = do
     tree ← lift $ applyₜ (push arg ⊕ keep) tree
     pure (%Recur nothing tree rec)
 
@@ -208,18 +214,18 @@ module _ {M : Set → Set} {{_ : Monad M}} where
     Refutable import Phase.Scoped.Patterns get stuck on Stuck import Phase.Scoped.Terms.
     Report getting stuck.
   -}
-  split rec (%Stuck _) (%Split pat tree) = loose
+  split rec (%Stuck _) (%Case pat tree) = loose
 
   {-
     Can't match lambdas.
   -}
-  split rec (%Lam _) (%Split pat tree) = lift $ throw %type-err
+  split rec (%Lam _) (%Case pat tree) = lift $ throw %type-err
 
   {-
     Finally, actual pattern matching!
   -}
-  split rec (%Ctor ctor args) (%Split (%Ctor ctor′ pats) tree) = do
-    if ctor == ctor′
+  split rec (%Ctor ctor args) (%Case (%Ctor ctor′ pats) tree) = do
+    if [ ctor ] == [ ctor′ ]
       then (do
         Δ    ← destruct-all args pats
         tree ← lift $ applyₜ (Δ ⊕ keep) tree
@@ -229,13 +235,13 @@ module _ {M : Set → Set} {{_ : Monad M}} where
   {-
     Match failed.
   -}
-  split rec arg (%Split pat tree) = lift $ throw %no-match
+  split rec arg (%Case pat tree) = lift $ throw %no-match
 
   {-
     Try a list of import Phase.Scoped.Patterns until one returns something (result or stuck), or throws anything
     other than %no-match.
   -}
-  splits : Vec (Case Value Δ  Γ) (length Δ) → Value Γ → List (Split Value Δ Γ) → MaybeT (T M) (Value Γ)
+  splits : Vec (Split Δ  Γ) (length Δ) → Value Γ → List (Case Δ Γ) → MaybeT (T M) (Value Γ)
   splits rec val = λ where
     [] → lift $ throw %no-match-lethal
     (case ∷ cases) → do
@@ -246,7 +252,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
   {-
     Try to apply a case-tree to a value.
   -}
-  case-tree : Vec (Case Value Δ Γ) (length Δ) → Value Γ → Case Value Δ Γ → MaybeT (T M) (Value Γ)
+  case-tree : Vec (Split Δ Γ) (length Δ) → Value Γ → Split Δ Γ → MaybeT (T M) (Value Γ)
   case-tree rec arg = λ where
     -- 'tis not a case tree, apply it as normal function
     (%Run f) → do
@@ -254,7 +260,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       lift (call f arg)
 
     -- it is a case tree; try all cases in sequence
-    (%Case cases) → do
+    (%Split cases) → do
       splits rec arg cases
 
   {-
@@ -289,6 +295,8 @@ module _ {M : Set → Set} {{_ : Monad M}} where
         %no-match → match val all-alts alts
         other     → throw other
 
+  access : Name → Value Γ → T M (Value Γ)
+
   {-
     Call something.
 
@@ -304,12 +312,26 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       (%Stuck f)        → ⦇ (%Stuck (%App f x)) ⦈
       (%Ctor ctor args) → ⦇ (%Ctor ctor (args + (x ∷ []))) ⦈
       (%Lam alts)       → match x alts alts
+      (%Field name)     → access name x
       other             → throw %type-err
+
+  assoc : ⦃ _ : Eq A ⦄ (a : A) (as : List (A × B)) → Maybe B
+  assoc b = λ where
+    [] → nothing
+    ((a , c) ∷ as) → (guard (a == b) *> pure c) <|> assoc b as
+
+  access name = λ where
+    (%Stuck x) → pure (%Stuck (%Get x name))
+    (%Record x) →
+      case assoc name x of λ where
+        nothing  → throw %no-field
+        (just f) → pure f
+    other → throw %type-err
 
   applyₛ sub stuck = do
     case stuck of λ where
-      (%Var var) → do
-        sub _ var
+      (%Var n var) → do
+        sub n var
       (%App f x) → do
         f ← applyₛ sub f
         x ← apply  sub x
@@ -318,3 +340,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
         f ← apply sub f
         x ← apply sub x
         call f x
+
+      (%Get b n) → do
+        b ← applyₛ sub b
+        access n b

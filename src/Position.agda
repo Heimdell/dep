@@ -46,10 +46,10 @@ module _ where
       let ls = lines src
       let ln = nth line ls
       vcat
-        ( (text file + text ":" + pp line + text ":" + pp col)
-        ∷ (text (fill (show line)) ◈ (text "|"))
-        ∷ (text       (show line)  ◈ (text "|" ◈ text (maybe id "<no text>" ln)))
-        ∷ (text (fill (show line)) ◈ (text "|" ◈ text (times "." col + "^")))
+        ( (text file + text ":" + pp (suc line) + text ":" + pp (suc col))
+        ∷ (text (fill (show (suc line))) ◈ (text "|"))
+        ∷ (text       (show (suc line))  ◈ (text "|" ◈ text (maybe id "<end-of-file>" ln)))
+        ∷ (text (fill (show (suc line))) ◈ (text "|" ◈ text (times "." col + "^")))
         ∷ []
         )
       where

@@ -6,9 +6,13 @@ open import Position
 record Name : Set where
   constructor %Name
   field
-    pos  : Pos
-    name : String
+    pos : Pos
+    [_] : String
 open Name public
+
+♯_ : String → Name
+(♯ str) .pos = %Pos "<nowhere>" "" 0 0 0
+[ ♯ str ] = str
 
 module _ where
 
@@ -16,4 +20,8 @@ module _ where
 
   instance
     name-is-pretty : PP Name
-    name-is-pretty .pp (%Name _ name) = text name
+    name-is-pretty .pp name = text [ name ]
+
+  instance
+    name-is-eq : Eq Name
+    name-is-eq ._==_ a b = [ a ] == [ b ]

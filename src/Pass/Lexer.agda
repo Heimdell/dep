@@ -6,7 +6,7 @@ open import Prelude
 open import Position
 open import Lexer
 
-lex-file : (file src : String) → IO (List Lexeme ⊎ Pos)
+lex-file : (file src : String) → IO ((List Lexeme × Pos) ⊎ Pos)
 lex-file = lex
   ( "type"
   ∷ "data"
@@ -17,4 +17,4 @@ lex-file = lex
   ∷ "in"
   ∷ [])
   []
-  ("=" ∷ "|" ∷ ":" ∷ "->" ∷ "[" ∷ "]" ∷ "(" ∷ ")" ∷ ";" ∷ [])
+  ("=" ∷ "|" ∷ ":" ∷ "->" ∷ "{" ∷ "}" ∷ "[" ∷ "]" ∷ "(" ∷ ")" ∷ ";" ∷ "_" ∷ [])
