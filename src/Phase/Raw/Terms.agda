@@ -8,15 +8,6 @@ open import Position
 record Alt  : Set
 data   Expr : Set
 
-{-
-  Expression of the modelled language.
-
-  Let-rec bindings are encoded case expressions.
-  Their mutual references are linked through variable-holes,
-  thus their import Phase.Scoped.Contexts are `Δ Γ`, and in `%Run` ctor we have `Expr (Δ + Γ)`.
-
-  This makes mutually-recursive substitution effectively delayed.
--}
 data Expr where
   %Var   : (n : Name) → Expr
   %Ctor  : Name → Expr
@@ -27,14 +18,6 @@ data Expr where
 
   %U     : Expr
   %Pi    : (n : Name) (dom cod : Expr) → Expr
-
-  %Let   : (n : Name) (ty value k : Expr) → Expr
-
-  -- let rec
-  %Rec   :
-    (binds : List (Name × Expr × Expr))
-    (cont  : Expr)
-           → Expr
 
 data Pat : Set where
   %Var  : Name → Pat
@@ -47,6 +30,16 @@ record Alt where
     pat  : Pat
     body : Expr
 open Alt
+
+data Stmts : Set where
+  %Do    : Expr → Stmts
+  %Let   : (n : Name) (ty value : Expr) → Stmts → Stmts
+
+  -- let rec
+  %Rec   :
+    (binds : List (Name × Expr × Expr))
+    (cont  : Stmts)
+           → Stmts
 
 open import Pretty
 open import Pretty.Syntax
@@ -86,6 +79,12 @@ instance
     (%Record _ fields)        → `⟪` vcat (show-field <$> fields) `⟫`
     p@(%App _ f x)             → `⟨` sep (call-spine p) `⟩`
     (%Lam _ alts)              → vcat (pp <$> alts)
+    (%U)                      → `Type`
+    (%Pi   n dom cod)         → `[` decl⟨ [ n ] ⟩ + `:` ◈ pp dom `]` ◈ pp cod
+instance
+  show-stmt : PP Stmts
+  show-stmt .pp = λ where
+    (%Do expr) → pp expr
     (%Let n ty value expr) → vcat ( `let`
                                      ∷ nest (hang (decl⟨ [ n ] ⟩ ◈ `:`) (pp ty))
                                      ∷ nest (hang (decl⟨ [ n ] ⟩ ◈ `=`) (pp value))
@@ -93,8 +92,6 @@ instance
                                      ∷ pp expr
                                      ∷ []
                                      )
-    (%U)                      → `Type`
-    (%Pi   n dom cod)         → `[` decl⟨ [ n ] ⟩ + `:` ◈ pp dom `]` ◈ pp cod
     (%Rec  binds expr)        → vcat ( `let-rec`
                                      ∷ nest (vcat (expr-vec→string <$> binds))
                                      ∷ empty
