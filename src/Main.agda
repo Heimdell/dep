@@ -62,7 +62,7 @@ module _ where
 --   mult 2
 expr : Stmts []
 expr = %Rec {Δ = "add" ∷ []}
-  ( (<nowhere> , %Split
+  ( (<nowhere> , inj₂ (%Split
       ( Sucₚ (%Var (♯ "n")) ⇒ %Run (%Lam (%Var (♯ "m") ⇉
           Sucₑ ⟨ ⟨ Var (♯ "add") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩
         ∷ []))
@@ -72,17 +72,17 @@ expr = %Rec {Δ = "add" ∷ []}
           ∷ []
           )
       ∷ []
-      ))
+      )))
   ∷ []
   )
   (%Rec {Δ = "mult" ∷ []}
-    ( (<nowhere> , %Split
+    ( (<nowhere> , inj₂ (%Split
         ( Sucₚ (%Var (♯ "n")) ⇒ %Run (%Lam (%Var (♯ "m") ⇉
             ⟨ ⟨ (Var (♯ "add")) ◂ Var (♯ "m") ⟩ ◂ ⟨ ⟨ Var (♯ "mult") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩ ⟩
           ∷ []))
         ∷ Zeroₚ ⇒ %Run (%Lam (%Var (♯ "m") ⇉ Zeroₑ ∷ []))
         ∷ []
-        ))
+        )))
     ∷ []
     )
     (%Do ⟨ Var (♯ "mult") ◂ (Sucₑ (Sucₑ Zeroₑ)) ⟩)

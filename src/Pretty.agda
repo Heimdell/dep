@@ -135,3 +135,6 @@ instance
   nat-is-pretty .pp = text ∘ show
     where
       open import Data.Nat.Show using (show)
+
+  sum-is-pretty : {{_ : PP A}} {{_ : PP B}} → PP (A ⊎ B)
+  sum-is-pretty .pp = [ pp , pp ]′

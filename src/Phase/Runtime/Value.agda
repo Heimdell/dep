@@ -35,8 +35,13 @@ data Tele (Γ : Ctx) : Ctx → Set where
   _≔_   : (n : Name) (ty : Value Γ) → Tele Γ ([ n ] ∷ [])
   _∶_∷_ : (n : Name) (ty : Value Γ) (rest : Tele ([ n ] ∷ Γ) Δ) → Tele Γ ([ n ] ∷ Δ)
 
+data RecTele (Γ : Ctx) : Set where
+  []    : RecTele Γ
+  _∶_∷_ : (f : Name) (ty : Value Γ) (rest : RecTele ([ f ] ∷ Γ)) → RecTele Γ
+
 data Newtype (Γ : Ctx) : Set where
-  %Data %Codata : Name → List (Name × Value Γ) → Newtype Γ
+  %Data : Name → List (Name × Value Γ) → Newtype Γ
+  %Codata : Name → RecTele Γ → Newtype Γ
 
 record Type (Γ : Ctx) : Set where
   inductive
@@ -113,9 +118,14 @@ instance
   show-case  : PP (Case  Δ Γ)
   show-nty   : PP (Newtype Γ)
 
+  show-rectele : PP (RecTele Γ)
+  show-rectele .pp = λ where
+    []             → empty
+    (f ∶ ty ∷ rec) → vcat ((field⟨ [ f ] ⟩ + `:` ◈ pp ty) ∷ pp rec ∷ [])
+
 show-nty .pp = λ where
   (%Data   n _) → use⟨ [ n ] ⟩
-  (%Codata n _) → use⟨ [ n ] ⟩
+  (%Codata n f) → pp f
 
 {-# TERMINATING #-}
 show-case .pp (%Case pat body) = hang (pp pat ◈ MAGENTA (text "⇒")) (pp body)

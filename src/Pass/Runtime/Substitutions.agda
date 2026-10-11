@@ -109,6 +109,14 @@ module _ {M : Set → Set} {{_ : Monad M}} where
   apply-te  : Δ ⇶ Γ → Tele    Δ Ξ → T M (Tele    Γ Ξ)
   apply-ty  : Δ ⇶ Γ → Type    Δ   → T M (Type    Γ)
   apply-nty : Δ ⇶ Γ → Newtype Δ   → T M (Newtype Γ)
+  apply-rte : Δ ⇶ Γ → RecTele Δ   → T M (RecTele Γ)
+
+  apply-rte sub = λ where
+    []               → ⦇ [] ⦈
+    (f ∶ ty ∷ tele) → do
+      ty ← apply sub ty
+      tele ← apply-rte (keep ⊜ sub) tele
+      pure (f ∶ ty ∷ tele)
 
   apply-ty sub (%Type tele type) =
     ⦇ %Type (apply-te sub tele) (apply-nty (keep ⊜ sub) type) ⦈
@@ -122,7 +130,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
 
   apply-nty sub = λ where
     (%Data   n ctors)  → ⦇ (%Data   n) (for ctors  (traverse ⦃ pair-is-traversable ⦄ (apply sub))) ⦈
-    (%Codata n fields) → ⦇ (%Codata n) (for fields (traverse ⦃ pair-is-traversable ⦄ (apply sub))) ⦈
+    (%Codata n fields) → ⦇ (%Codata n) (apply-rte sub fields) ⦈
 
   applyₜ sub = λ where
     (%Run   plain) → ⦇ %Run   (apply (keep ⊜ sub) plain) ⦈
