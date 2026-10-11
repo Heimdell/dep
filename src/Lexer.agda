@@ -163,18 +163,14 @@ comment : Lexer ⊤
 comment = void do
   rollback do
     for (toList "/*") char
-    many do
+    many {{choice←alternative}} do
       not-followed-by do
         for (toList "*/") char
       any-char
     for (toList "*/") char
 
-record Lexeme : Set where
-  constructor %Lexeme
-  field
-    pos : Pos
-    payload : Payload
-open Lexeme public
+Lexeme : Set
+Lexeme = Pos × Payload
 
 module _ where
 
@@ -182,7 +178,7 @@ module _ where
 
   instance
     lexeme-is-pretty : PP Lexeme
-    lexeme-is-pretty .pp = pp ∘ payload
+    lexeme-is-pretty .pp = pp ∘ proj₂
 
 take-str : ℕ → String → String
 take-str  zero   _    = ""
@@ -200,13 +196,13 @@ lexeme names NAMES symbols = do
         <|> ctor    NAMES
         <|> keyword symbols
         <|> field′
-  pure (%Lexeme (input .pos) payload)
+  pure (input .pos , payload)
 
 space : Lexer Char
 space = rollback do satisfy isSpace
 
 spaces : Lexer ⊤
-spaces = void $ many (void space <|> comment)
+spaces = void $ many {{choice←alternative}} (void space <|> comment)
 
 lexemes : (names NAMES symbols : List String) → Lexer (List Lexeme)
 lexemes names NAMES symbols = do

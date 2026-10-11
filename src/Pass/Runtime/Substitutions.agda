@@ -12,6 +12,7 @@ open import Name
 -}
 data Err : Set where
   %type-err        : Err
+  %naked-type      : Err
   %no-match        : Err
   %no-match-lethal : Err
   %no-field        : Err
@@ -24,6 +25,7 @@ module _ where
     show-inj₂ : PP Err
     show-inj₂ .pp = λ where
       %type-err        → text "type error"
+      %naked-type      → text "naked type"
       %no-match        → text "no match"
       %no-match-lethal → text "no match for real"
       %no-field        → text "no field"
@@ -104,6 +106,24 @@ module _ {M : Set → Set} {{_ : Monad M}} where
   applyₜ : Δ ⇶ Γ → Split Θ Δ → T M (Split Θ Γ)
   applyₚ : Δ ⇶ Γ → Case  Θ Δ → T M (Case  Θ Γ)
 
+  apply-te  : Δ ⇶ Γ → Tele    Δ Ξ → T M (Tele    Γ Ξ)
+  apply-ty  : Δ ⇶ Γ → Type    Δ   → T M (Type    Γ)
+  apply-nty : Δ ⇶ Γ → Newtype Δ   → T M (Newtype Γ)
+
+  apply-ty sub (%Type tele type) =
+    ⦇ %Type (apply-te sub tele) (apply-nty (keep ⊜ sub) type) ⦈
+
+  apply-te sub = λ where
+    (n ≔ ty)             → ⦇ (n ≔_) (apply sub ty) ⦈
+    (n ∶ ty ∷ tele) → do
+      ty   ← apply            sub  ty
+      tele ← apply-te (keep ⊜ sub) tele
+      pure (n ∶ ty ∷ tele)
+
+  apply-nty sub = λ where
+    (%Data   n ctors)  → ⦇ (%Data   n) (for ctors  (traverse ⦃ pair-is-traversable ⦄ (apply sub))) ⦈
+    (%Codata n fields) → ⦇ (%Codata n) (for fields (traverse ⦃ pair-is-traversable ⦄ (apply sub))) ⦈
+
   applyₜ sub = λ where
     (%Run   plain) → ⦇ %Run   (apply (keep ⊜ sub) plain) ⦈
     (%Split cases) → ⦇ %Split (for cases (applyₚ sub)) ⦈
@@ -120,7 +140,10 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       (%Lam    cases)        → ⦇  %Lam (for cases (applyₘ sub)) ⦈
       (%Recur  n case trees) → ⦇ (%Recur n) (applyₜ sub case) (for trees (applyₜ sub)) ⦈
       (%U)                   → ⦇  %U ⦈
+      (%Erased)              → ⦇  %Erased ⦈
       (%Pi     n dom cod)    → ⦇ (%Pi n) (apply sub dom) (apply (keep ⊜ sub) cod) ⦈
+      (%Type   t)            → ⦇  %Type (apply-ty sub t) ⦈
+      (%Newtype nt)          → ⦇  %Newtype (apply-nty sub nt) ⦈
 
   applyₘ sub match@(%Match pat value) = do
     ⦇ (%Match pat) (apply (keep ⊜ sub) value) ⦈
@@ -297,6 +320,12 @@ module _ {M : Set → Set} {{_ : Monad M}} where
 
   access : Name → Value Γ → T M (Value Γ)
 
+  call-ty : Type Γ → Value Γ → T M (Value Γ)
+  call-ty (%Type (n ≔ ty) type) value = ⦇ %Newtype (apply-nty (push value ⊕ keep) type) ⦈
+  call-ty (%Type (n ∶ ty ∷ tele) type) value = do
+    value′ ← apply (vacuous ⊜ keep) value
+    ⦇ %Type ⦇ %Type (apply-te (push value ⊕ keep) tele) (apply-nty (push value′ ⊕ keep) type) ⦈ ⦈
+
   {-
     Call something.
 
@@ -313,6 +342,7 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       (%Ctor ctor args) → ⦇ (%Ctor ctor (args + (x ∷ []))) ⦈
       (%Lam alts)       → match x alts alts
       (%Field name)     → access name x
+      (%Type ty)        → call-ty ty x
       other             → throw %type-err
 
   assoc : ⦃ _ : Eq A ⦄ (a : A) (as : List (A × B)) → Maybe B

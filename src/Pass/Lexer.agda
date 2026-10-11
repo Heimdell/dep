@@ -6,8 +6,8 @@ open import Prelude
 open import Position
 open import Lexer
 
-lex-file : (file src : String) → IO ((List Lexeme × Pos) ⊎ Pos)
-lex-file = lex
+reserved-list : List String
+reserved-list =
   ( "type"
   ∷ "data"
   ∷ "end"
@@ -16,5 +16,7 @@ lex-file = lex
   ∷ "function"
   ∷ "in"
   ∷ [])
-  []
-  ("=" ∷ "|" ∷ ":" ∷ "->" ∷ "{" ∷ "}" ∷ "[" ∷ "]" ∷ "(" ∷ ")" ∷ ";" ∷ "_" ∷ [])
+
+lex-file : (file src : String) → IO ((List Lexeme × Pos) ⊎ Pos)
+lex-file = lex reserved-list []
+  ("=>" ∷ "|" ∷ ":" ∷ "*" ∷ "=" ∷ "{" ∷ "}" ∷ "[" ∷ "]" ∷ "(" ∷ ")" ∷ ";" ∷ "_" ∷ [])

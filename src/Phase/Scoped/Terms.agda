@@ -65,11 +65,35 @@ record Alt Γ where
     body : Expr (δ + Γ)  -- body of the alt
 open Alt
 
+data Tele (Γ : Ctx) : Ctx → Set where
+  %Indices : Expr Γ → Tele Γ []
+  _∶_∷_    : (n : Name) (ty : Expr Γ) (rest : Tele Γ Δ) → Tele Γ ([ n ] ∷ Δ)
+
+data Newtype (Γ : Ctx) : Set where
+  %Data %Codata : List (Name × Expr Γ) → Newtype Γ
+
+record Type (Γ : Ctx) : Set where
+  constructor %Type
+  field
+    {δ}     : Ctx
+    tele    : Tele Γ δ
+    newtype : Newtype (δ + Γ)
+open Type public
+
+data Binder (S : Ctx → Set) (Γ : Ctx) : Set where
+  %Expr : S    Γ → Binder S Γ
+  %Type : Type Γ → Binder S Γ
+
 data Stmts (Γ : Ctx) : Set where
   %Do  : Expr Γ → Stmts Γ
-  %Let : (n : Name) (ty val : Expr Γ) → Stmts ([ n ] ∷ Γ) → Stmts Γ
+  %Let : (n : Name) (ty : Expr Γ) (val : Expr Γ) → Stmts ([ n ] ∷ Γ) → Stmts Γ
   %Rec :
     (binds : Vec (Pos × Split Δ Γ) (length Δ))
+    (cont  : Stmts (Δ + Γ))
+           → Stmts      Γ
+  %Let-type : (n : Name) (val : Type Γ) → Stmts ([ n ] ∷ Γ) → Stmts Γ
+  %Rec-type :
+    (binds : Vec (Pos × Type Γ) (length Δ))
     (cont  : Stmts (Δ + Γ))
            → Stmts      Γ
 
@@ -82,6 +106,7 @@ instance
   show-alt   : PP (Alt     Γ)
   show-split : PP (Split Δ Γ)
   show-case  : PP (Case  Δ Γ)
+  show-binder : {S : Ctx → Set} ⦃ _ : PP (S Γ) ⦄ → PP (Binder S Γ)
 
 call-spine : Expr Γ → List Doc
 call-spine = λ where
@@ -117,6 +142,30 @@ show-split .pp = λ where
   (%Split  cases)  → vcat (pp <$> cases)
 
 instance
+  show-tele : PP (Tele Γ Δ)
+  show-tele .pp = λ where
+    (%Indices expr) → `:` ◈ pp expr
+    (n ∶ ty ∷ tele) → `⟨` decl⟨ [ n ] ⟩ + `:` ◈ pp ty `⟩` ◈ pp tele
+
+  show-newtype : PP (Newtype Γ)
+  show-newtype .pp = λ where
+    (%Data   dat) → hang `data`   (vcat ((λ ((n , e)) → pp n + `:` ◈ pp e) <$> dat))
+    (%Codata cod) → hang `codata` (vcat ((λ ((n , e)) → pp n + `:` ◈ pp e) <$> cod))
+
+  show-type : PP (Type Γ)
+  show-type .pp (%Type tele newtype) =
+    hang (pp tele) (pp newtype)
+
+  show-binder .pp = λ where
+    (%Expr ex) → pp ex
+    (%Type ty) → pp ty
+
+types→string : (Δ : Ctx) → Vec (Pos × Type Γ) (length Δ) → List Doc
+types→string [] [] = []
+types→string  (n ∷ Δ) ((_ , expr) ∷ decls) =
+  hang (decl⟨ n ⟩ ◈ `=`) (pp expr) ∷ types→string Δ decls
+
+instance
   show-stmt : PP (Stmts Γ)
   show-stmt .pp = λ where
     (%Do  expr) → `do` ◈ pp expr
@@ -129,6 +178,18 @@ instance
                                      )
     (%Rec {Δ} binds cont) → vcat ( `let-rec`
                                      ∷ nest (vcat (expr-vec→string Δ binds))
+                                     ∷ empty
+                                     ∷ pp cont
+                                     ∷ []
+                                     )
+    (%Let-type n    val stmt) → vcat ( `let`
+                                     ∷ nest (hang (decl⟨ [ n ] ⟩ ◈ `=`) (pp val))
+                                     ∷ empty
+                                     ∷ pp stmt
+                                     ∷ []
+                                     )
+    (%Rec-type {Δ} binds cont) → vcat ( `let-rec`
+                                     ∷ nest (vcat (types→string Δ binds))
                                      ∷ empty
                                      ∷ pp cont
                                      ∷ []

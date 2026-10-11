@@ -31,13 +31,31 @@ record Alt where
     body : Expr
 open Alt
 
+data Newtype : Set where
+  %Data %Codata : List (Name × Expr) → Newtype
+
+record Type : Set where
+  constructor %Type
+  field
+    pos     : Pos
+    params  : List (Name × Expr)
+    indices : Expr
+    newtype : Newtype
+open Type public
+
 data Stmts : Set where
   %Do    : Expr → Stmts
   %Let   : (n : Name) (ty value : Expr) → Stmts → Stmts
 
-  -- let rec
   %Rec   :
     (binds : List (Name × Expr × Expr))
+    (cont  : Stmts)
+           → Stmts
+
+  %Let-type   : (n : Name) (value : Type) → Stmts → Stmts
+
+  %Rec-type   :
+    (binds : List (Name × Type))
     (cont  : Stmts)
            → Stmts
 
@@ -49,11 +67,10 @@ instance
   show-expr  : PP Expr
   show-alt   : PP Alt
   show-pat   : PP Pat
---   show-split : PP (Split Δ Γ)
---   show-case  : PP (Case  Δ Γ)
 
 call-spine : Expr → List Doc
 call-spine = λ where
+  -- (%App _ (%Field x) f) → pp x ∷ call-spine f
   (%App _ f x) → call-spine f + (pp x ∷ [])
   other        → pp other ∷ []
 
@@ -69,7 +86,12 @@ expr-vec→string (name , type , value) =
   hang (hang decl⟨ [ name ] ⟩ (`:` ◈ pp type) ◈ `=`) (pp value)
 
 show-field : Name × Expr → Doc
-show-field (name , value) = hang field⟨ [ name ] ⟩ (pp value)
+show-field (name , value) = hang (field⟨ [ name ] ⟩ ◈ `=`) (pp value)
+
+sep′ : List Doc → Doc
+sep′ = λ where
+  []       → text ""
+  (x ∷ xs) → hang x (sep′ xs)
 
 instance
   show-expr .pp = λ where
@@ -77,10 +99,21 @@ instance
     (%Ctor ctor)              → ctor⟨ [ ctor ] ⟩
     (%Field name)             → field⟨ [ name ] ⟩
     (%Record _ fields)        → `⟪` vcat (show-field <$> fields) `⟫`
-    p@(%App _ f x)             → `⟨` sep (call-spine p) `⟩`
-    (%Lam _ alts)              → vcat (pp <$> alts)
+    p@(%App _ f x)             → `⟨` hang (pp f) (pp x) `⟩`
+    (%Lam _ alts)              → `⟪` vcat (pp <$> alts) `⟫`
     (%U)                      → `Type`
     (%Pi   n dom cod)         → `[` decl⟨ [ n ] ⟩ + `:` ◈ pp dom `]` ◈ pp cod
+
+instance
+  show-newtype : PP Newtype
+  show-newtype .pp = λ where
+    (%Data   dat) → hang `data`   (vcat ((λ ((n , e)) → pp n + `:` ◈ pp e) <$> dat))
+    (%Codata cod) → hang `codata` (vcat ((λ ((n , e)) → pp n + `:` ◈ pp e) <$> cod))
+
+  show-type : PP Type
+  show-type .pp (%Type pos params indices newtype) =
+    hang (sep ((λ ((n , e)) → pp n + `:` ◈ pp e) <$> params) ◈ `:` ◈ pp indices) (pp newtype)
+
 instance
   show-stmt : PP Stmts
   show-stmt .pp = λ where
@@ -94,6 +127,18 @@ instance
                                      )
     (%Rec  binds expr)        → vcat ( `let-rec`
                                      ∷ nest (vcat (expr-vec→string <$> binds))
+                                     ∷ empty
+                                     ∷ pp expr
+                                     ∷ []
+                                     )
+    (%Let-type n value expr) → vcat ( `let`
+                                     ∷ nest (hang (decl⟨ [ n ] ⟩ ◈ `=`) (pp value))
+                                     ∷ empty
+                                     ∷ pp expr
+                                     ∷ []
+                                     )
+    (%Rec-type  binds expr)        → vcat ( `let-rec`
+                                     ∷ nest (vcat ((λ ((n , ty)) → hang (decl⟨ [ n ] ⟩ ◈ `=`) (pp ty)) <$> binds))
                                      ∷ empty
                                      ∷ pp expr
                                      ∷ []

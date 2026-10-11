@@ -4,12 +4,21 @@ open import Prelude
 
 open import Phase.Scoped.Terms
 open import Phase.Scoped.Patterns
+open import Phase.Scoped.Contexts
 open import Phase.Runtime.Value using ()
 open import Pass.Runtime.Substitutions using ()
 open import Pass.Runtime.Eval
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Name
 open import Position
+
+instance
+  deeper : ⦃ it : n ∈ Δ ⦄ → n ∈ (m ∷ Δ)
+  deeper ⦃ it ⦄ = there it
+  {-# INCOHERENT deeper #-}
+
+  shallow : n ∈ (n ∷ Δ)
+  shallow = here refl
 
 module _ where
 
@@ -29,14 +38,6 @@ module _ where
 
   ⟨_◂_⟩ : (f x : Expr Γ) → Expr Γ
   ⟨ f ◂ x ⟩ = %App f x
-
-  instance
-    deeper : ⦃ it : n ∈ Δ ⦄ → n ∈ (m ∷ Δ)
-    deeper ⦃ it ⦄ = there it
-    {-# INCOHERENT deeper #-}
-
-    shallow : n ∈ (n ∷ Δ)
-    shallow = here refl
 
   Var : (n : Name) ⦃ it : [ n ] ∈ Γ ⦄ → Expr Γ
   Var n ⦃ it ⦄ = %Var n it
@@ -90,21 +91,29 @@ expr = %Rec {Δ = "add" ∷ []}
 open import Pretty
 
 open import Control.Monad.Error
+open import Control.Monad.State using ()
 
 open import Lexer
 open import Pass.Lexer
+import Pass.Parser as P
+open import Parser
 open import Position
+open import Phase.Raw.Terms
 
 main : IO ⊤
 main = do
-  putStrLn "Program"
-  put (nest (pp expr))
-  putStrLn "Evaluates to"
-  run expr .run-error >>= λ where
-    (inj₁ value) -> put (nest (pp value))
-    (inj₂ error) -> put (nest (pp error))
+  -- putStrLn "Program"
+  -- put (nest (pp expr))
+  -- putStrLn "Evaluates to"
+  -- run expr .run-error >>= λ where
+  --   (inj₁ value) -> put (nest (pp value))
+  --   (inj₂ error) -> put (nest (pp error))
   src ← readFile "example/test.dep"
   res ← lex-file "example/test.dep" src
   case res of λ where
-    (inj₁ (ls , end)) → put (vcat (cat (map pp ls) ∷ pp end ∷ []))
+    (inj₁ (ls , end)) → do
+      run-parser (P.expr <* eof "end-of-file") (%Input 0 ls end) >>= λ where
+        (fst , inj₁ x) → put (pp x)
+        (fst , inj₂ y) → put (hang (text "expected" ◈ sep (text <$> y) ◈ text "at") (pp (get-cursor fst)))
+      -- put (vcat (cat (map pp ls) ∷ pp end ∷ []))
     (inj₂ pos) → put (pp pos)

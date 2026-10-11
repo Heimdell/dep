@@ -31,20 +31,39 @@ data Split Δ Γ where
   %Run   : Value (Δ + Γ)   → Split Δ Γ
   %Split : List (Case Δ Γ) → Split Δ Γ
 
+data Tele (Γ : Ctx) : Ctx → Set where
+  _≔_   : (n : Name) (ty : Value Γ) → Tele Γ ([ n ] ∷ [])
+  _∶_∷_ : (n : Name) (ty : Value Γ) (rest : Tele ([ n ] ∷ Γ) Δ) → Tele Γ ([ n ] ∷ Δ)
+
+data Newtype (Γ : Ctx) : Set where
+  %Data %Codata : Name → List (Name × Value Γ) → Newtype Γ
+
+record Type (Γ : Ctx) : Set where
+  inductive
+  constructor %Type
+  field
+    {γ}  : Ctx
+    tele : Tele Γ γ
+    type : Newtype (γ + Γ)
+open Type public
+
 {-
   Normal form.
 
   `%Recur` (the recursive function body) is here, because it is not, in fact, stuck.
 -}
 data Value Γ where
-  %Stuck  : Stuck Γ → Value Γ
-  %Ctor   : Name → List (Value Γ) → Value Γ
-  %Field  : Name → Value Γ
-  %Lam    : List (Match Γ) → Value Γ
-  %Record : List (Name × Value Γ) → Value Γ
-  %U      : Value Γ
-  %Pi     : (n : Name) → Value Γ → Value ([ n ] ∷ Γ) → Value Γ
-  %Recur  :
+  %Stuck   : Stuck Γ → Value Γ
+  %Ctor    : Name → List (Value Γ) → Value Γ
+  %Field   : Name → Value Γ
+  %Lam     : List (Match Γ) → Value Γ
+  %Record  : List (Name × Value Γ) → Value Γ
+  %U       : Value Γ
+  %Erased  : Value Γ
+  %Pi      : (n : Name) → Value Γ → Value ([ n ] ∷ Γ) → Value Γ
+  %Type    : (t : Type Γ) → Value Γ
+  %Newtype : (n : Newtype Γ) → Value Γ
+  %Recur   :
     (n      : Maybe Name)
     (body   : Split Δ Γ)
     (recure : Vec (Split Δ Γ) (length Δ))
@@ -92,6 +111,11 @@ instance
   show-match : PP (Match   Γ)
   show-split : PP (Split Δ Γ)
   show-case  : PP (Case  Δ Γ)
+  show-nty   : PP (Newtype Γ)
+
+show-nty .pp = λ where
+  (%Data   n _) → use⟨ [ n ] ⟩
+  (%Codata n _) → use⟨ [ n ] ⟩
 
 {-# TERMINATING #-}
 show-case .pp (%Case pat body) = hang (pp pat ◈ MAGENTA (text "⇒")) (pp body)
@@ -114,7 +138,10 @@ show-value .pp = λ where
   (%Lam    alts)           → vcat (pp <$> alts)
   (%Recur  (just n) _ _)   → rec⟨ [ n ] ⟩
   (%Recur  nothing case _) → pp case
+  (%Type   ty)             → pp (ty .type)
+  (%Newtype ty)            → pp ty
   (%U)                     → `Type`
+  (%Erased)                → `erased`
   (%Pi     n dom cod)      → `[` text [ n ] + `:` ◈ pp dom `]` ◈ pp cod
 
 call-spine  : Stuck Γ → List Doc

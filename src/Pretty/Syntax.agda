@@ -46,7 +46,13 @@ ctor⟨_⟩ : String → Doc
 ctor⟨ ctor ⟩ = green (text ctor)
 
 field⟨_⟩ : String → Doc
-field⟨ ctor ⟩ = magenta (text ctor)
+field⟨ ctor ⟩ = magenta (text ("." + ctor))
 
 `do` : Doc
 `do` = magenta (text "do")
+
+`data` `codata` : Doc
+`data`   = magenta (text   "data")
+`codata` = magenta (text "codata")
+
+`erased` = red (text "erased")
