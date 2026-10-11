@@ -9,6 +9,7 @@ open import Pass.Runtime.Substitutions using ()
 open import Pass.Runtime.Eval
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Name
+open import Position
 
 module _ where
 
@@ -58,9 +59,9 @@ module _ where
 --   mult  Zero   m = Zero
 -- in
 --   mult 2
-expr : Expr []
+expr : Stmts []
 expr = %Rec {Δ = "add" ∷ []}
-  ( %Split
+  ( (<nowhere> , %Split
       ( Sucₚ (%Var (♯ "n")) ⇒ %Run (%Lam (%Var (♯ "m") ⇉
           Sucₑ ⟨ ⟨ Var (♯ "add") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩
         ∷ []))
@@ -70,20 +71,20 @@ expr = %Rec {Δ = "add" ∷ []}
           ∷ []
           )
       ∷ []
-      )
+      ))
   ∷ []
   )
   (%Rec {Δ = "mult" ∷ []}
-    ( %Split
+    ( (<nowhere> , %Split
         ( Sucₚ (%Var (♯ "n")) ⇒ %Run (%Lam (%Var (♯ "m") ⇉
             ⟨ ⟨ (Var (♯ "add")) ◂ Var (♯ "m") ⟩ ◂ ⟨ ⟨ Var (♯ "mult") ◂ Var (♯ "n") ⟩ ◂ Var (♯ "m") ⟩ ⟩
           ∷ []))
         ∷ Zeroₚ ⇒ %Run (%Lam (%Var (♯ "m") ⇉ Zeroₑ ∷ []))
         ∷ []
-        )
+        ))
     ∷ []
     )
-    ⟨ Var (♯ "mult") ◂ (Sucₑ (Sucₑ Zeroₑ)) ⟩
+    (%Do ⟨ Var (♯ "mult") ◂ (Sucₑ (Sucₑ Zeroₑ)) ⟩)
   )
 
 open import Pretty
@@ -99,7 +100,7 @@ main = do
   putStrLn "Program"
   put (nest (pp expr))
   putStrLn "Evaluates to"
-  eval expr .run-error >>= λ where
+  run expr .run-error >>= λ where
     (inj₁ value) -> put (nest (pp value))
     (inj₂ error) -> put (nest (pp error))
   src ← readFile "example/test.dep"

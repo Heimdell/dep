@@ -12,6 +12,9 @@ record Pos : Set where
     off  : ℕ
 open Pos public
 
+<nowhere> : Pos
+<nowhere> = %Pos "<nowhere>" "" 0 0 0
+
 start : String → String → Pos
 start file src .file = file
 start file src .src  = src

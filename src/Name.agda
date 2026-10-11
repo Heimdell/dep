@@ -11,7 +11,7 @@ record Name : Set where
 open Name public
 
 ♯_ : String → Name
-(♯ str) .pos = %Pos "<nowhere>" "" 0 0 0
+(♯ str) .pos = <nowhere>
 [ ♯ str ] = str
 
 module _ where

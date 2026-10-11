@@ -35,15 +35,17 @@ module _ {M : Set → Set} {{_ : Monad M}} where
       (%Record fields)    → ⦇ %Record (for fields (traverse ⦃ pair-is-traversable ⦄ eval)) ⦈
       (%U)                → ⦇ %U ⦈
       (%Pi n dom cod)     → ⦇ (%Pi n) (eval dom) (eval cod) ⦈
-
-      (%Let n _ value expr) → do
-        value ← eval value
-        expr  ← eval expr
-        apply (push value ⊕ keep) expr
-
-      (%Rec Δ expr) → do
-        Δ    ← for Δ eval-split
-        expr ← eval expr
-        apply (recure Δ ⊕ keep) expr
-
       (%Field name) → ⦇ (%Field name) ⦈
+
+  run : Stmts Γ → T M (Value Γ)
+  run = λ where
+    (%Do expr) → eval expr
+    (%Let n _ value expr) → do
+      value ← eval value
+      expr  ← run expr
+      apply (push value ⊕ keep) expr
+
+    (%Rec Δ expr) → do
+      Δ    ← for Δ (eval-split ∘ proj₂)
+      expr ← run expr
+      apply (recure Δ ⊕ keep) expr
